@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pištovy hry</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0f172a;color:#f1f5f9;font-family:'Segoe UI',sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:18px;padding:20px;}
+h1{font-size:30px;font-weight:800;}
+h1 em{color:#6366f1;font-style:normal;}
+p{color:#94a3b8;}
+.cards{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:8px;}
+.card{background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  padding:26px 34px;text-align:center;text-decoration:none;color:#f1f5f9;
+  transition:all .2s;min-width:150px;}
+.card:hover{background:#334155;transform:translateY(-4px);border-color:#6366f1;}
+.icon{font-size:46px;margin-bottom:8px;}
+.name{font-size:17px;font-weight:700;}
+.desc{font-size:12px;color:#94a3b8;margin-top:3px;}
+</style>
+</head>
+<body>
+<h1>🎮 Pišt<em>ovy</em> hry</h1>
+<p>Vyber si hru, Pišto!</p>
+<div class="cards">
+  <a class="card" href="sudoku.html">
+    <div class="icon">🔢</div>
+    <div class="name">Sudoku</div>
+    <div class="desc">4 obtížnosti · Pišto hraje</div>
+  </a>
+  <a class="card" href="freecell.html">
+    <div class="icon">♠</div>
+    <div class="name">FreeCell</div>
+    <div class="desc">Klasická karetní hra</div>
+  </a>
+</div>
+</body>
+</html>

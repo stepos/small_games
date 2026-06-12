@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Sudoku — Pišto hraje</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f172a;--surface:#1e293b;--surface2:#334155;
+  --accent:#6366f1;--accent2:#ec4899;
+  --text:#f1f5f9;--dim:#94a3b8;
+  --given:#f1f5f9;--filled:#93c5fd;--err:#f87171;--note:#34d399;
+  --hl:rgba(99,102,241,.18);--same:rgba(99,102,241,.35);--sel:#3730a3;
+  --border-in:rgba(255,255,255,.1);--border-blk:rgba(255,255,255,.55);
+  --r:8px;
+}
+html,body{height:100%;overscroll-behavior:none;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',-apple-system,sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  user-select:none;overflow-x:hidden;padding-bottom:16px;}
+
+/* ── HEADER ── */
+header{width:100%;max-width:480px;padding:12px 14px 6px;}
+.h1r{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+h1{font-size:21px;font-weight:800;letter-spacing:1px;}
+h1 em{font-style:normal;color:var(--accent);}
+.stats{display:flex;gap:14px;align-items:center;}
+#timer{font-family:monospace;font-size:19px;font-weight:700;letter-spacing:1px;}
+.errcnt{font-size:14px;}
+.diffrow{display:flex;gap:5px;}
+.db{flex:1;padding:5px 2px;border:1px solid rgba(255,255,255,.18);border-radius:var(--r);
+  background:transparent;color:var(--dim);cursor:pointer;font-size:11px;
+  font-weight:700;text-transform:uppercase;letter-spacing:.5px;transition:all .15s;}
+.db:hover{background:rgba(255,255,255,.07);color:var(--text);}
+.db.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* ── GRID ── */
+#gw{width:100%;max-width:364px;padding:2px 2px;}
+#grid{
+  display:grid;grid-template-columns:repeat(9,1fr);
+  width:min(360px,calc(100vw - 20px));height:min(360px,calc(100vw - 20px));
+  border:3px solid var(--border-blk);border-radius:3px;overflow:hidden;
+}
+.cell{
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);cursor:pointer;position:relative;
+  transition:background .08s;overflow:hidden;
+  border-right:1px solid var(--border-in);
+  border-bottom:1px solid var(--border-in);
+  font-size:clamp(13px,4.2vw,20px);font-weight:700;
+}
+.cell:nth-child(3n){border-right:2px solid var(--border-blk);}
+.cell:nth-child(9n){border-right:none;}
+.cell.br{border-bottom:2px solid var(--border-blk);}
+.cell.lr{border-bottom:none;}
+.cell.given{color:var(--given);}
+.cell.filled{color:var(--filled);}
+.cell.err{color:var(--err);}
+.cell.hl{background:var(--hl);}
+.cell.same{background:var(--same);}
+.cell.sel{background:var(--sel)!important;}
+.cell.hint-flash{animation:hflash .6s ease;}
+.ng{display:grid;grid-template-columns:repeat(3,1fr);width:92%;height:92%;gap:0;}
+.nn{display:flex;align-items:center;justify-content:center;
+  font-size:clamp(5px,1.4vw,9px);font-weight:400;color:var(--note);line-height:1;}
+.nn.x{color:transparent;}
+
+/* ── CONTROLS ── */
+#ctrls{width:100%;max-width:364px;padding:6px 2px;display:flex;flex-direction:column;gap:7px;}
+.actrow{display:flex;gap:6px;justify-content:center;}
+.ab{flex:1;max-width:66px;height:46px;border:1px solid rgba(255,255,255,.16);
+  border-radius:var(--r);background:var(--surface);color:var(--text);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;font-size:10px;font-weight:600;transition:all .12s;}
+.ab:hover{background:var(--surface2);}
+.ab:active{transform:scale(.94);}
+.ab.on{background:var(--accent2);border-color:var(--accent2);}
+.ab:disabled{opacity:.35;cursor:not-allowed;}
+.ai{font-size:17px;line-height:1;}
+.numpad{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;}
+.nb{aspect-ratio:1;border:1px solid rgba(255,255,255,.13);border-radius:6px;
+  background:var(--surface);color:var(--text);cursor:pointer;
+  font-size:clamp(13px,4vw,20px);font-weight:700;display:flex;
+  align-items:center;justify-content:center;transition:all .1s;}
+.nb:hover{background:var(--surface2);transform:scale(1.06);}
+.nb:active{transform:scale(.93);}
+
+/* ── BEST TIMES ── */
+#bt{width:100%;max-width:364px;padding:4px 2px 0;display:flex;gap:5px;}
+.bti{flex:1;background:var(--surface);border-radius:var(--r);padding:5px 3px;text-align:center;}
+.btl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;}
+.btv{font-size:12px;font-weight:700;font-family:monospace;color:var(--accent);margin-top:1px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:18px;left:50%;
+  transform:translateX(-50%) translateY(90px);
+  background:var(--surface2);color:var(--text);padding:11px 20px;
+  border-radius:24px;font-size:14px;font-weight:500;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);z-index:200;
+  transition:transform .32s cubic-bezier(.175,.885,.32,1.275);
+  white-space:nowrap;max-width:88vw;text-align:center;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ── OVERLAYS ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);
+  z-index:300;align-items:center;justify-content:center;}
+.ov.show{display:flex;}
+.ovbox{background:var(--surface);border-radius:20px;padding:36px;
+  text-align:center;animation:pop .38s cubic-bezier(.175,.885,.32,1.275);
+  max-width:310px;width:92vw;}
+#wbox{border:2px solid var(--accent);}
+#gbox{border:2px solid var(--err);}
+.ovbox h2{font-size:26px;margin-bottom:6px;}
+.wtime{font-size:44px;font-weight:800;color:var(--accent);
+  font-family:monospace;margin:10px 0;}
+.ovbox p{color:var(--dim);font-size:13px;margin-bottom:18px;}
+.ovbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.bp{background:var(--accent);color:#fff;border:none;border-radius:var(--r);
+  padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s;}
+.bp:hover{opacity:.82;}
+.bs{background:var(--surface2);}
+
+/* ── CONFETTI ── */
+.cf{position:fixed;top:-12px;z-index:400;border-radius:3px;
+  animation:cfall linear forwards;}
+@keyframes cfall{to{top:110vh;transform:rotate(720deg);}}
+
+/* ── ANIMATIONS ── */
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes pop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes hflash{0%,100%{background:var(--sel)}50%{background:#7c3aed;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h1r">
+    <h1>♟ <em>SUDO</em>KU</h1>
+    <div class="stats">
+      <span id="timer">0:00</span>
+      <span class="errcnt" id="errs">❤️❤️❤️</span>
+    </div>
+  </div>
+  <div class="diffrow">
+    <button class="db" data-d="easy"   onclick="setDiff('easy')">Lehká</button>
+    <button class="db on" data-d="medium" onclick="setDiff('medium')">Střední</button>
+    <button class="db" data-d="hard"   onclick="setDiff('hard')">Těžká</button>
+    <button class="db" data-d="expert" onclick="setDiff('expert')">Expert</button>
+  </div>
+</header>
+
+<div id="gw"><div id="grid"></div></div>
+
+<div id="ctrls">
+  <div class="actrow">
+    <button class="ab" onclick="newGame()" title="Nová hra (N)"><span class="ai">🔀</span>Nová</button>
+    <button class="ab" id="uBtn" onclick="doUndo()" title="Zpět (Ctrl+Z)"><span class="ai">↩</span>Zpět</button>
+    <button class="ab" id="nBtn" onclick="toggleNotes()" title="Poznámky (P)"><span class="ai">✏️</span>Tužka</button>
+    <button class="ab" onclick="erase()" title="Guma (Del)"><span class="ai">⌫</span>Guma</button>
+    <button class="ab" id="hBtn" onclick="hint()" title="Nápověda (H)"><span class="ai">💡</span><span id="hc">3</span></button>
+  </div>
+  <div class="numpad" id="numpad"></div>
+</div>
+
+<div id="bt">
+  <div class="bti"><div class="btl">Lehká</div><div class="btv" id="bt-easy">—</div></div>
+  <div class="bti"><div class="btl">Střední</div><div class="btv" id="bt-medium">—</div></div>
+  <div class="bti"><div class="btl">Těžká</div><div class="btv" id="bt-hard">—</div></div>
+  <div class="bti"><div class="btl">Expert</div><div class="btv" id="bt-expert">—</div></div>
+</div>
+
+<div id="wov" class="ov">
+  <div class="ovbox" id="wbox">
+    <h2 id="wtitle">🎉 Výhra!</h2>
+    <div class="wtime" id="wtime"></div>
+    <p id="wmsg"></p>
+    <div class="ovbtns">
+      <button class="bp" onclick="newGame()">Nová hra</button>
+      <button class="bp bs" onclick="closeOv()">Zůstat</button>
+    </div>
+  </div>
+</div>
+
+<div id="gov" class="ov">
+  <div class="ovbox" id="gbox">
+    <h2>💀 Konec!</h2>
+    <p id="gmsg"></p>
+    <div class="ovbtns">
+      <button class="bp" onclick="newGame()">Nová hra</button>
+      <button class="bp bs" onclick="cont()">Pokračovat</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// SUDOKU ENGINE — MRV solver
+// ═══════════════════════════════════════════
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=0|Math.random()*(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function candidates(g,r,c){
+  if(g[r][c])return[];
+  const u=new Set();
+  for(let i=0;i<9;i++){
+    if(g[r][i])u.add(g[r][i]);
+    if(g[i][c])u.add(g[i][c]);
+    u.add(g[3*(r/3|0)+i/3|0][3*(c/3|0)+i%3]);
+  }
+  u.delete(0);
+  return[1,2,3,4,5,6,7,8,9].filter(n=>!u.has(n));
+}
+
+function mrv(g){
+  let min=10,br=-1,bc=-1;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!g[r][c]){const k=candidates(g,r,c).length;if(k<min){min=k;br=r;bc=c;if(!min)return{r,c,k:0};}}
+  }
+  return br<0?null:{r:br,c:bc,k:min};
+}
+
+function solve(g,rand=false){
+  const cell=mrv(g);
+  if(!cell)return true;
+  if(!cell.k)return false;
+  const {r,c}=cell;
+  const cands=candidates(g,r,c);
+  if(rand)shuf(cands);
+  for(const n of cands){g[r][c]=n;if(solve(g,rand))return true;g[r][c]=0;}
+  return false;
+}
+
+function countSols(g,max=2){
+  let n=0;
+  function bt(){
+    if(n>=max)return;
+    const cell=mrv(g);
+    if(!cell){n++;return;}
+    if(!cell.k)return;
+    const{r,c}=cell;
+    for(const v of candidates(g,r,c)){g[r][c]=v;bt();g[r][c]=0;if(n>=max)return;}
+  }
+  bt();return n;
+}
+
+function genPuzzle(diff){
+  const targets={easy:40,medium:33,hard:27,expert:22};
+  const target=targets[diff]||33;
+  const sol=Array.from({length:9},()=>Array(9).fill(0));
+  solve(sol,true);
+  const puz=sol.map(r=>[...r]);
+  const pos=shuf([...Array(81).keys()]);
+  let kept=81;
+  for(const idx of pos){
+    if(kept<=target)break;
+    const r=idx/9|0,c=idx%9,v=puz[r][c];
+    puz[r][c]=0;
+    const tmp=puz.map(r=>[...r]);
+    if(countSols(tmp)===1)kept--;
+    else puz[r][c]=v;
+  }
+  return{sol,puz};
+}
+
+// ═══════════════════════════════════════════
+// MESSAGES
+// ═══════════════════════════════════════════
+const M={
+  start:['Vítej, Pišto! Jdeme na to?','Tak pojď hrát, Pišto! 🃏','Připraven, Pišto? Hurá!'],
+  hint: ['Tady máš malou pomoc, Pišto.','Jen tentokrát, Pišto! 😏','Trochu ti pomůžu, Pišto 💡'],
+  err:  ['Pozor, Pišto, tohle tam nesedí!','Hmm, Pišto, to není správně!','Zkus znovu, Pišto!'],
+  win:  ['Skvělá práce, Pišto!','Výborně, Pišto! 🎉','Jsi borec, Pišto! 💪'],
+  rec:  ['Jako dobrý, Pišto, máš rekord! 🏆','Nový rekord, Pišto! Zboř to! 🏆'],
+  go:   ['Třikrát chyba, Pišto! Konec!','Ups, Pišto, třikrát špatně — konec!'],
+  noH:  ['Žádné nápovědy nezbývají, Pišto.'],
+  noteOn:['Režim poznámek zapnut, Pišto! ✏️'],
+  noteOff:['Poznámky vypnuty, Pišto.'],
+  erased:['Smazáno, Pišto!'],
+};
+const pick=k=>{const a=M[k];return a[Math.random()*a.length|0];};
+
+let tT;
+function toast(msg,dur=3200){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ═══════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════
+const G={
+  sol:null,puz:null,board:null,notes:null,fixed:null,
+  sel:null,errs:0,hints:3,hist:[],
+  noteMode:false,timerInt:null,secs:0,
+  over:false,won:false,diff:'medium',
+  best:{easy:null,medium:null,hard:null,expert:null}
+};
+
+function fmt(s){return`${s/60|0}:${String(s%60).padStart(2,'0')}`;}
+function startTimer(){clearInterval(G.timerInt);G.secs=0;G.timerInt=setInterval(()=>{G.secs++;document.getElementById('timer').textContent=fmt(G.secs);},1000);}
+function stopTimer(){clearInterval(G.timerInt);}
+
+function snap(){return{board:G.board.map(r=>[...r]),notes:G.notes.map(r=>r.map(s=>new Set(s))),errs:G.errs};}
+
+function setDiff(d){
+  G.diff=d;
+  document.querySelectorAll('.db').forEach(b=>b.classList.toggle('on',b.dataset.d===d));
+  newGame();
+}
+
+function newGame(){
+  stopTimer();closeOvs();
+  toast('Generuji hru, Pišto… ⏳',60000);
+  setTimeout(()=>{
+    const{sol,puz}=genPuzzle(G.diff);
+    G.sol=sol;G.puz=puz;
+    G.board=puz.map(r=>[...r]);
+    G.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
+    G.fixed=puz.map(r=>r.map(v=>v!==0));
+    G.sel=null;G.errs=0;G.hints=3;G.hist=[];
+    G.noteMode=false;G.over=false;G.won=false;
+    document.getElementById('nBtn').classList.remove('on');
+    updErrs();updHints();startTimer();render();
+    toast(pick('start'));
+  },30);
+}
+
+function cont(){G.over=false;document.getElementById('gov').classList.remove('show');startTimer();}
+function closeOv(){document.getElementById('wov').classList.remove('show');}
+function closeOvs(){document.getElementById('wov').classList.remove('show');document.getElementById('gov').classList.remove('show');}
+
+// ═══════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════
+function selCell(r,c){if(G.over||G.won)return;G.sel={r,c};render();}
+
+function enterNum(n){
+  if(!G.sel||G.over||G.won)return;
+  const{r,c}=G.sel;
+  if(G.fixed[r][c])return;
+  G.hist.push(snap());
+
+  if(G.noteMode){
+    const s=G.notes[r][c];
+    s.has(n)?s.delete(n):s.add(n);
+    G.board[r][c]=0;render();return;
+  }
+
+  G.notes[r][c].clear();
+  G.board[r][c]=n;
+
+  if(n!==G.sol[r][c]){
+    G.errs++;updErrs();
+    render();shakeCell(r,c);toast(pick('err'));
+    if(G.errs>=3){
+      stopTimer();G.over=true;render();
+      setTimeout(()=>{document.getElementById('gmsg').textContent=pick('go');document.getElementById('gov').classList.add('show');},500);
+    }
+  }else{
+    clearNotes(r,c,n);render();checkWin();
+  }
+}
+
+function clearNotes(r,c,n){
+  const br=r/3|0,bc=c/3|0;
+  for(let i=0;i<9;i++){G.notes[r][i].delete(n);G.notes[i][c].delete(n);}
+  for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)G.notes[br*3+dr][bc*3+dc].delete(n);
+}
+
+function erase(){
+  if(!G.sel||G.over)return;
+  const{r,c}=G.sel;if(G.fixed[r][c])return;
+  G.hist.push(snap());G.board[r][c]=0;G.notes[r][c].clear();
+  render();toast(pick('erased'));
+}
+
+function doUndo(){
+  if(!G.hist.length)return;
+  const p=G.hist.pop();
+  G.board=p.board;G.notes=p.notes;G.errs=p.errs;
+  updErrs();render();
+}
+
+function toggleNotes(){
+  G.noteMode=!G.noteMode;
+  document.getElementById('nBtn').classList.toggle('on',G.noteMode);
+  toast(pick(G.noteMode?'noteOn':'noteOff'));
+}
+
+function hint(){
+  if(G.over||G.won)return;
+  if(G.hints<=0){toast(pick('noH'));return;}
+  const empties=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)
+    if(!G.fixed[r][c]&&G.board[r][c]!==G.sol[r][c])empties.push({r,c});
+  if(!empties.length)return;
+  G.hist.push(snap());
+  const{r,c}=empties[Math.random()*empties.length|0];
+  G.board[r][c]=G.sol[r][c];G.notes[r][c].clear();
+  clearNotes(r,c,G.sol[r][c]);
+  G.hints--;G.sel={r,c};updHints();render();
+  flashCell(r,c);toast(pick('hint'));checkWin();
+}
+
+function updErrs(){
+  const e=G.errs,h=3-e;
+  document.getElementById('errs').textContent=(e>=3?'💀':'❤️'.repeat(h)+'🖤'.repeat(e));
+}
+
+function updHints(){
+  document.getElementById('hc').textContent=G.hints+'💡';
+  document.getElementById('hBtn').disabled=G.hints<=0;
+}
+
+function checkWin(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(G.board[r][c]!==G.sol[r][c])return;
+  stopTimer();G.won=true;
+  const t=G.secs,d=G.diff;
+  const isRec=!G.best[d]||t<G.best[d];
+  if(isRec){G.best[d]=t;updBest();}
+  render();
+  setTimeout(()=>{
+    confetti();
+    document.getElementById('wtitle').textContent='🎉 '+pick('win');
+    document.getElementById('wtime').textContent=fmt(t);
+    document.getElementById('wmsg').textContent=isRec?pick('rec'):`Čas: ${fmt(t)}`;
+    document.getElementById('wov').classList.add('show');
+  },350);
+}
+
+function updBest(){
+  ['easy','medium','hard','expert'].forEach(d=>{
+    const v=G.best[d];
+    document.getElementById('bt-'+d).textContent=v?fmt(v):'—';
+  });
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function hlSet(r,c){
+  const s=new Set(),br=(r/3|0)*3,bc=(c/3|0)*3;
+  for(let i=0;i<9;i++){s.add(r*9+i);s.add(i*9+c);}
+  for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)s.add((br+dr)*9+(bc+dc));
+  return s;
+}
+
+function render(){
+  if(!G.board)return;
+  const cells=document.querySelectorAll('.cell');
+  const sr=G.sel?.r??-1,sc=G.sel?.c??-1;
+  const sn=sr>=0?G.board[sr][sc]:0;
+  const hl=sr>=0?hlSet(sr,sc):new Set();
+
+  cells.forEach((el,idx)=>{
+    const r=idx/9|0,c=idx%9;
+    const v=G.board[r][c],fix=G.fixed[r][c];
+    const isSel=r===sr&&c===sc;
+    const isErr=!fix&&v&&v!==G.sol[r][c];
+    const isSame=sn&&v===sn&&!isSel;
+
+    el.className='cell'+(((r+1)%3===0&&r!==8)?' br':'')+(r===8?' lr':'');
+    if(isSel)el.classList.add('sel');
+    else if(isSame)el.classList.add('same');
+    else if(hl.has(idx))el.classList.add('hl');
+    if(isErr)el.classList.add('err');
+    else if(fix)el.classList.add('given');
+    else if(v)el.classList.add('filled');
+
+    const ns=G.notes[r][c];
+    if(v){el.textContent=v;}
+    else if(ns.size){
+      el.innerHTML=`<div class="ng">${[1,2,3,4,5,6,7,8,9].map(n=>`<div class="nn${ns.has(n)?'':' x'}">${ns.has(n)?n:''}</div>`).join('')}</div>`;
+    }else{el.textContent='';}
+  });
+
+  document.getElementById('uBtn').disabled=!G.hist.length;
+}
+
+function shakeCell(r,c){
+  const el=document.querySelectorAll('.cell')[r*9+c];
+  el.style.animation='shake .3s ease';
+  el.addEventListener('animationend',()=>{el.style.animation='';},{once:true});
+}
+function flashCell(r,c){
+  const el=document.querySelectorAll('.cell')[r*9+c];
+  el.classList.add('hint-flash');
+  el.addEventListener('animationend',()=>el.classList.remove('hint-flash'),{once:true});
+}
+
+// ═══════════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════════
+function confetti(){
+  const cols=['#6366f1','#ec4899','#34d399','#fbbf24','#f87171','#60a5fa'];
+  for(let i=0;i<100;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      el.className='cf';
+      el.style.cssText=`left:${Math.random()*100}vw;background:${cols[Math.random()*cols.length|0]};width:${6+Math.random()*9}px;height:${6+Math.random()*9}px;animation-duration:${1.4+Math.random()*2.2}s;animation-delay:${Math.random()*.4}s;`;
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),4500);
+    },i*12);
+  }
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(k>='1'&&k<='9'){e.preventDefault();enterNum(+k);return;}
+  if(k==='Backspace'||k==='Delete'||k==='0'){e.preventDefault();erase();return;}
+  if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();doUndo();return;}
+  if(k==='p'||k==='P'){toggleNotes();return;}
+  if(k==='h'||k==='H'){hint();return;}
+  if(k==='n'||k==='N'){newGame();return;}
+  if(!G.sel)return;
+  const{r,c}=G.sel;
+  if(k==='ArrowUp'||k==='w'){e.preventDefault();if(r>0)selCell(r-1,c);}
+  else if(k==='ArrowDown'||k==='s'){e.preventDefault();if(r<8)selCell(r+1,c);}
+  else if(k==='ArrowLeft'||k==='a'){e.preventDefault();if(c>0)selCell(r,c-1);}
+  else if(k==='ArrowRight'||k==='d'){e.preventDefault();if(c<8)selCell(r,c+1);}
+});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+(function(){
+  // Build grid
+  const grid=document.getElementById('grid');
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const el=document.createElement('div');
+    el.className='cell'+(((r+1)%3===0&&r!==8)?' br':'')+(r===8?' lr':'');
+    el.onclick=()=>selCell(r,c);
+    grid.appendChild(el);
+  }
+  // Build numpad
+  const pad=document.getElementById('numpad');
+  for(let n=1;n<=9;n++){
+    const b=document.createElement('button');
+    b.className='nb';b.textContent=n;b.onclick=()=>enterNum(n);
+    pad.appendChild(b);
+  }
+  setDiff('medium');
+})();
+</script>
+</body>
+</html>
