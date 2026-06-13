@@ -231,7 +231,8 @@ input.ni::placeholder{color:var(--dim);}
 .auth-out{background:none;border:none;color:var(--dim);cursor:pointer;font-size:11px;padding:0;}
 .auth-out:hover{color:var(--text);}
 .lb-h{font-size:17px;font-weight:800;margin-bottom:3px;}
-.lb-s{font-size:11px;color:var(--dim);margin-bottom:11px;}
+.lb-s{font-size:11px;color:var(--dim);margin-bottom:8px;}
+.lb-tabs{display:flex;gap:4px;margin-bottom:10px;}
 table.lbt{width:100%;border-collapse:collapse;}
 table.lbt th{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;
   padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left;}
@@ -412,6 +413,10 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
   <div class="ovbox" id="lbox">
     <div class="lb-h">🏆 Výsledková tabulka</div>
     <div class="lb-s" id="lb-sub"></div>
+    <div class="lb-tabs">
+      <button id="lbt-month" class="ttab on" onclick="setLBTab('month')">Poslední měsíc</button>
+      <button id="lbt-all" class="ttab" onclick="setLBTab('all')">Od počátku</button>
+    </div>
     <div id="lb-body"><div class="lb-empty">Načítám…</div></div>
     <div style="display:flex;gap:7px;margin-top:12px">
       <button class="ch-btn" onclick="openChallenge()">Nová výzva</button>
@@ -959,6 +964,30 @@ function openScore(){
   document.getElementById('sov').classList.add('show');
 }
 
+// ═══════════════════════════════════════════
+// LEADERBOARD — stav a deduplikace
+// ═══════════════════════════════════════════
+const LB={scores:[],cid:'',tab:'month'};
+const ONE_MONTH=30*24*3600*1000;
+
+function dedupeByPlayer(arr){
+  const map=new Map();
+  arr.forEach(s=>{
+    const k=s.uid?'u:'+s.uid:'n:'+s.name;
+    if(!map.has(k)||s.s<map.get(k).s)map.set(k,s);
+  });
+  return [...map.values()].sort((a,b)=>a.s-b.s);
+}
+
+function setLBTab(tab){
+  LB.tab=tab;
+  document.getElementById('lbt-month').classList.toggle('on',tab==='month');
+  document.getElementById('lbt-all').classList.toggle('on',tab==='all');
+  const now=Date.now();
+  const filtered=tab==='month'?LB.scores.filter(s=>!s.ts||now-s.ts<=ONE_MONTH):LB.scores;
+  renderLB(dedupeByPlayer(filtered),LB.cid);
+}
+
 async function sendScore(){
   const name=(document.getElementById('score-name').value.trim()||fbUser?.displayName||'Anonym').slice(0,20);
   const t=G.secs,e=G.errs,h=3-G.hints,s=t+e*60+h*30;
@@ -969,7 +998,7 @@ async function sendScore(){
   const key='lb:'+C.cid;
   const loc=JSON.parse(localStorage.getItem(key)||'[]');
   const myIdx=loc.findIndex(x=>(uid&&x.uid===uid)||(x.name===name&&!uid));
-  if(myIdx>=0)loc[myIdx]=entry;else loc.push(entry);
+  if(myIdx>=0){if(entry.s<loc[myIdx].s)loc[myIdx]=entry;}else loc.push(entry);
   localStorage.setItem(key,JSON.stringify(loc));
   localStorage.setItem('pName',name);
 
@@ -979,9 +1008,12 @@ async function sendScore(){
         const q=await fbDb.collection('scores')
           .where('cid','==',C.cid).where('uid','==',uid).limit(1).get();
         if(q.empty)await fbDb.collection('scores').add(entry);
-        else await q.docs[0].ref.set(entry);
+        else if(entry.s<q.docs[0].data().s)await q.docs[0].ref.set(entry);
       }else{
-        await fbDb.collection('scores').add(entry);
+        const q=await fbDb.collection('scores')
+          .where('cid','==',C.cid).where('name','==',name).limit(1).get();
+        if(q.empty)await fbDb.collection('scores').add(entry);
+        else if(entry.s<q.docs[0].data().s)await q.docs[0].ref.set(entry);
       }
       toast('Skóre uloženo online! ✅');
     }catch(err){toast('Uloženo lokálně 💾');}
@@ -998,6 +1030,7 @@ async function sendScore(){
 // ═══════════════════════════════════════════
 async function showLB(cid){
   if(!cid)cid=C.cid||todayCid();
+  LB.cid=cid;
   document.getElementById('lov').classList.add('show');
   const parts=cid.split('-'),isDay=cid.startsWith('daily-');
   const diff=parts[1]||'';
@@ -1010,7 +1043,7 @@ async function showLB(cid){
   if(FB_ON&&fbDb){
     try{
       const snap=await fbDb.collection('scores')
-        .where('cid','==',cid).orderBy('s').limit(50).get();
+        .where('cid','==',cid).orderBy('s').limit(200).get();
       scores=snap.docs.map(d=>d.data());
     }catch(err){console.warn('Firestore read:',err);}
   }
@@ -1022,8 +1055,8 @@ async function showLB(cid){
     const k=l.uid?'u:'+l.uid:'n:'+l.name+':'+l.t;
     if(!onK.has(k))scores.push(l);
   });
-  scores.sort((a,b)=>a.s-b.s);
-  renderLB(scores,cid);
+  LB.scores=scores;
+  setLBTab(LB.tab);
 }
 
 function renderLB(rows,cid){
@@ -1031,7 +1064,7 @@ function renderLB(rows,cid){
   const myUid=fbUser?.uid;
   const el=document.getElementById('lb-body');
   if(!rows.length){
-    el.innerHTML=`<div class="lb-empty">Zatím žádné výsledky.<br>Buď první, Pišto! 🏆</div>
+    el.innerHTML=`<div class="lb-empty">Zatím žádné výsledky v tomto období.<br>Buď první! 🏆</div>
       ${!FB_ON?`<div class="fb-note">💡 Pro sdílení tabulky s ostatními nastav Firebase v kódu (fb.google.com → SDK config).</div>`:''}`;
     return;
   }
