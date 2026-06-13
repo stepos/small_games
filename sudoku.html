@@ -16,7 +16,9 @@
   --r:8px;
 }
 html,body{height:100%;overscroll-behavior:none;}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',-apple-system,sans-serif;
+body{background:linear-gradient(135deg,#0f172a,#1a1040,#0c1424,#0f172a);
+  background-size:400% 400%;animation:bgShift 22s ease infinite;
+  color:var(--text);font-family:'Segoe UI',-apple-system,sans-serif;
   min-height:100vh;display:flex;flex-direction:column;align-items:center;
   user-select:none;overflow-x:hidden;padding-bottom:16px;}
 
@@ -139,6 +141,19 @@ h1 em{font-style:normal;color:var(--accent);}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 @keyframes pop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes hflash{0%,100%{background:var(--sel)}50%{background:#7c3aed;}}
+@keyframes bgShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes cellEnter{0%{opacity:0;transform:scale(.45)rotate(-8deg)}65%{transform:scale(1.08)rotate(1deg)}100%{opacity:1;transform:scale(1)rotate(0)}}
+@keyframes cellPop{0%{transform:scale(1)}30%{transform:scale(1.25)}70%{transform:scale(.96)}100%{transform:scale(1)}}
+@keyframes groupWave{0%{background:rgba(251,191,36,.08)!important}45%{background:rgba(251,191,36,.44)!important;transform:scale(1.07)}100%{background:var(--surface)!important;transform:scale(1)}}
+@keyframes numDonePop{0%{transform:scale(1)}30%{transform:scale(1.42);box-shadow:0 0 0 8px rgba(52,211,153,.28)}65%{transform:scale(.94)}100%{transform:scale(1)}}
+@keyframes errRing{0%{box-shadow:0 0 0 0 rgba(248,113,113,.85)}70%{box-shadow:0 0 0 12px rgba(248,113,113,0)}100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}}
+@keyframes solvedCell{0%{background:rgba(52,211,153,.1)!important}50%{background:rgba(52,211,153,.35)!important}100%{background:var(--surface)!important}}
+.cell.cell-enter{animation:cellEnter .28s ease both;z-index:1;}
+.cell.anim-pop{animation:cellPop .22s ease;}
+.cell.anim-group{animation:groupWave .48s ease;}
+.cell.anim-err{animation:errRing .55s ease,shake .35s ease;}
+.cell.anim-solved{animation:solvedCell .6s ease;}
+.nb.anim-num-done{animation:numDonePop .52s ease forwards;}
 
 /* ── TUTORIAL ── */
 #tov{overflow-y:auto;padding:10px 0;}
@@ -710,6 +725,7 @@ function newGame(){
     document.getElementById('pause-ov').classList.remove('show');
     document.getElementById('nBtn').classList.remove('on');
     updErrs();updHints();startTimer();render();
+    setTimeout(animBoardEntrance,10);
     toast(pick('start'));
   },30);
 }
@@ -741,7 +757,7 @@ function enterNum(n){
   if(n!==G.sol[r][c]){
     G.errs++;updErrs();
     SND.error();
-    render();shakeCell(r,c);toast(pick('err'));
+    render();shakeCell(r,c);animCellErr(r,c);toast(pick('err'));
     if(G.errs>=3){
       stopTimer();G.over=true;
       STATS[G.diff].games++;saveStats();
@@ -750,7 +766,7 @@ function enterNum(n){
     }
   }else{
     SND.correct();
-    clearNotes(r,c,n);render();checkWin();
+    clearNotes(r,c,n);render();animCellPop(r,c);checkGroups(r,c);checkWin();
   }
 }
 
@@ -792,7 +808,7 @@ function hint(){
   G.board[r][c]=G.sol[r][c];G.notes[r][c].clear();
   clearNotes(r,c,G.sol[r][c]);
   G.hints--;G.sel={r,c};updHints();render();
-  SND.hint();flashCell(r,c);toast(pick('hint'));checkWin();
+  SND.hint();flashCell(r,c);animCellPop(r,c);checkGroups(r,c);toast(pick('hint'));checkWin();
 }
 
 function updErrs(){
@@ -816,6 +832,11 @@ function checkWin(){
   saveStats();
   if(C.mode)updStreak();
   render();
+  // Win wave — all cells radiate from center
+  setTimeout(()=>{
+    const allIdx=Array.from({length:81},(_,i)=>i);
+    animGroupWave(allIdx,40);
+  },50);
   setTimeout(()=>{
     SND.win();confetti();
     if(C.mode){
@@ -887,7 +908,11 @@ function updNumpad(){
     const wasDone=b.classList.contains('done');
     const isDone=cnt[+b.textContent]===9;
     b.classList.toggle('done',isDone);
-    if(isDone&&!wasDone)SND.numDone();
+    if(isDone&&!wasDone){
+      SND.numDone();
+      b.classList.add('anim-num-done');
+      b.addEventListener('animationend',()=>b.classList.remove('anim-num-done'),{once:true});
+    }
   });
 }
 
@@ -939,6 +964,77 @@ function shakeCell(r,c){
   const el=document.querySelectorAll('.cell')[r*9+c];
   el.style.animation='shake .3s ease';
   el.addEventListener('animationend',()=>{el.style.animation='';},{once:true});
+}
+
+function animCellPop(r,c){
+  const el=document.querySelectorAll('.cell')[r*9+c];
+  el.classList.remove('anim-pop');
+  void el.offsetWidth;
+  el.classList.add('anim-pop');
+  el.addEventListener('animationend',()=>el.classList.remove('anim-pop'),{once:true});
+}
+
+function animCellErr(r,c){
+  const el=document.querySelectorAll('.cell')[r*9+c];
+  el.classList.remove('anim-err');
+  void el.offsetWidth;
+  el.classList.add('anim-err');
+  el.addEventListener('animationend',()=>el.classList.remove('anim-err'),{once:true});
+}
+
+function animBoardEntrance(){
+  const cells=document.querySelectorAll('.cell');
+  cells.forEach((el,idx)=>{
+    const r=idx/9|0,c=idx%9;
+    const delay=r*22+c*7;
+    el.style.animationDelay=delay+'ms';
+    el.classList.remove('cell-enter');
+    void el.offsetWidth;
+    el.classList.add('cell-enter');
+    el.addEventListener('animationend',()=>{
+      el.classList.remove('cell-enter');
+      el.style.animationDelay='';
+    },{once:true});
+  });
+}
+
+function animGroupWave(idxArr,fromIdx){
+  const cells=document.querySelectorAll('.cell');
+  const fr=fromIdx/9|0,fc=fromIdx%9;
+  const sorted=idxArr.slice().sort((a,b)=>{
+    const ar=a/9|0,ac=a%9,br=b/9|0,bc=b%9;
+    return Math.hypot(ar-fr,ac-fc)-Math.hypot(br-fr,bc-fc);
+  });
+  sorted.forEach((idx,i)=>{
+    setTimeout(()=>{
+      const el=cells[idx];
+      if(!el)return;
+      el.classList.remove('anim-group');
+      void el.offsetWidth;
+      el.classList.add('anim-group');
+      el.addEventListener('animationend',()=>el.classList.remove('anim-group'),{once:true});
+    },i*38);
+  });
+}
+
+function checkGroups(r,c){
+  if(!G.board||!G.sol)return;
+  const toAnimate=new Set();
+  // Check row
+  let rowOk=true;
+  for(let i=0;i<9;i++)if(G.board[r][i]!==G.sol[r][i]){rowOk=false;break;}
+  if(rowOk)for(let i=0;i<9;i++)toAnimate.add(r*9+i);
+  // Check col
+  let colOk=true;
+  for(let i=0;i<9;i++)if(G.board[i][c]!==G.sol[i][c]){colOk=false;break;}
+  if(colOk)for(let i=0;i<9;i++)toAnimate.add(i*9+c);
+  // Check 3×3 box
+  const br=(r/3|0)*3,bc2=(c/3|0)*3;
+  let boxOk=true;
+  for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)
+    if(G.board[br+dr][bc2+dc]!==G.sol[br+dr][bc2+dc]){boxOk=false;break;}
+  if(boxOk)for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)toAnimate.add((br+dr)*9+(bc2+dc));
+  if(toAnimate.size>0)setTimeout(()=>animGroupWave([...toAnimate],r*9+c),80);
 }
 function flashCell(r,c){
   const el=document.querySelectorAll('.cell')[r*9+c];
@@ -1152,6 +1248,7 @@ function launchChallenge(cid){
     document.getElementById('pause-ov').classList.remove('show');
     document.getElementById('nBtn').classList.remove('on');
     updErrs();updHints();startTimer();render();
+    setTimeout(animBoardEntrance,10);
     toast('🏆 Výzva spuštěna!');
   },30);
 }
