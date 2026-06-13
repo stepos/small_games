@@ -89,6 +89,11 @@ h1 em{font-style:normal;color:var(--accent);}
 .streak-badge{font-size:11px;font-weight:800;color:#f97316;background:rgba(249,115,22,.15);
   border-radius:20px;padding:2px 9px;display:none;letter-spacing:.3px;}
 .pause-msg{font-size:42px;margin-bottom:6px;}
+#snd-row{text-align:center;padding:6px 0 14px;}
+#snd-btn{background:none;border:1px solid rgba(255,255,255,.15);color:var(--dim);
+  border-radius:20px;padding:4px 16px;font-size:11px;cursor:pointer;transition:all .15s;font-weight:600;}
+#snd-btn:hover{color:var(--text);border-color:rgba(255,255,255,.3);}
+#snd-btn.on{color:#34d399;border-color:#34d399;}
 
 /* ── BEST TIMES ── */
 #bt{width:100%;max-width:364px;padding:4px 2px 0;display:flex;gap:5px;}
@@ -298,6 +303,7 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
   <div class="bti"><div class="btl">Těžká</div><div class="btv" id="bt-hard">—</div></div>
   <div class="bti"><div class="btl">Expert</div><div class="btv" id="bt-expert">—</div></div>
 </div>
+<div id="snd-row"><button id="snd-btn" onclick="toggleSnd()">🔇 Zvuk VYP</button></div>
 
 <div id="wov" class="ov">
   <div class="ovbox" id="wbox">
@@ -562,6 +568,85 @@ function updStreakBadge(){
 }
 
 // ═══════════════════════════════════════════
+// ZVUKY — Web Audio API
+// ═══════════════════════════════════════════
+const SND={
+  on:localStorage.getItem('snd')!=='0',
+  _ctx:null,
+  ctx(){if(!this._ctx)this._ctx=new(window.AudioContext||window.webkitAudioContext)();return this._ctx;},
+  play(fn){if(!this.on)return;try{fn(this.ctx());}catch(e){}},
+  correct(){this.play(ctx=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.setValueAtTime(660,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1040,ctx.currentTime+.09);
+    g.gain.setValueAtTime(.14,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.18);
+    o.start();o.stop(ctx.currentTime+.18);
+  });},
+  error(){this.play(ctx=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sawtooth';o.connect(g);g.connect(ctx.destination);
+    o.frequency.setValueAtTime(130,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(90,ctx.currentTime+.22);
+    g.gain.setValueAtTime(.14,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.28);
+    o.start();o.stop(ctx.currentTime+.28);
+  });},
+  win(){this.play(ctx=>{
+    [523,659,784,1047].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;
+      const t=ctx.currentTime+i*.13;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18,t+.04);
+      g.gain.exponentialRampToValueAtTime(.001,t+.45);
+      o.start(t);o.stop(t+.45);
+    });
+  });},
+  hint(){this.play(ctx=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.connect(g);g.connect(ctx.destination);
+    o.frequency.setValueAtTime(660,ctx.currentTime);
+    o.frequency.linearRampToValueAtTime(880,ctx.currentTime+.12);
+    g.gain.setValueAtTime(.13,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);
+    o.start();o.stop(ctx.currentTime+.3);
+  });},
+  erase(){this.play(ctx=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.connect(g);g.connect(ctx.destination);
+    o.frequency.setValueAtTime(320,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(200,ctx.currentTime+.09);
+    g.gain.setValueAtTime(.08,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.12);
+    o.start();o.stop(ctx.currentTime+.12);
+  });},
+  numDone(){this.play(ctx=>{
+    [1047,1319].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine';o.connect(g);g.connect(ctx.destination);
+      const t=ctx.currentTime+i*.11;
+      o.frequency.value=f;
+      g.gain.setValueAtTime(.11,t);g.gain.exponentialRampToValueAtTime(.001,t+.38);
+      o.start(t);o.stop(t+.38);
+    });
+  });}
+};
+function toggleSnd(){
+  SND.on=!SND.on;
+  localStorage.setItem('snd',SND.on?'1':'0');
+  updSndBtn();
+  if(SND.on)SND.correct();
+}
+function updSndBtn(){
+  const b=document.getElementById('snd-btn');
+  if(!b)return;
+  b.textContent=SND.on?'🔊 Zvuk ZAP':'🔇 Zvuk VYP';
+  b.classList.toggle('on',SND.on);
+}
+
+// ═══════════════════════════════════════════
 // MESSAGES — {n} se nahradí jménem hráče
 // ═══════════════════════════════════════════
 const M={
@@ -655,6 +740,7 @@ function enterNum(n){
 
   if(n!==G.sol[r][c]){
     G.errs++;updErrs();
+    SND.error();
     render();shakeCell(r,c);toast(pick('err'));
     if(G.errs>=3){
       stopTimer();G.over=true;
@@ -663,6 +749,7 @@ function enterNum(n){
       setTimeout(()=>{document.getElementById('gmsg').textContent=pick('go');document.getElementById('gov').classList.add('show');},500);
     }
   }else{
+    SND.correct();
     clearNotes(r,c,n);render();checkWin();
   }
 }
@@ -677,7 +764,7 @@ function erase(){
   if(!G.sel||G.over)return;
   const{r,c}=G.sel;if(G.fixed[r][c])return;
   G.hist.push(snap());G.board[r][c]=0;G.notes[r][c].clear();
-  render();toast(pick('erased'));
+  SND.erase();render();toast(pick('erased'));
 }
 
 function doUndo(){
@@ -705,7 +792,7 @@ function hint(){
   G.board[r][c]=G.sol[r][c];G.notes[r][c].clear();
   clearNotes(r,c,G.sol[r][c]);
   G.hints--;G.sel={r,c};updHints();render();
-  flashCell(r,c);toast(pick('hint'));checkWin();
+  SND.hint();flashCell(r,c);toast(pick('hint'));checkWin();
 }
 
 function updErrs(){
@@ -730,7 +817,7 @@ function checkWin(){
   if(C.mode)updStreak();
   render();
   setTimeout(()=>{
-    confetti();
+    SND.win();confetti();
     if(C.mode){
       setTimeout(openScore,600);
     }else{
@@ -797,7 +884,10 @@ function updNumpad(){
   const cnt=Array(10).fill(0);
   for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(G.board[r][c])cnt[G.board[r][c]]++;
   document.querySelectorAll('#numpad .nb').forEach(b=>{
-    b.classList.toggle('done',cnt[+b.textContent]===9);
+    const wasDone=b.classList.contains('done');
+    const isDone=cnt[+b.textContent]===9;
+    b.classList.toggle('done',isDone);
+    if(isDone&&!wasDone)SND.numDone();
   });
 }
 
@@ -1474,6 +1564,8 @@ document.addEventListener('keydown',e=>{
   initFB();
   // Zobrazit streak badge pokud existuje
   updStreakBadge();
+  // Nastavit stav sound tlačítka
+  updSndBtn();
 
   // Zkontrolovat jméno hráče — pokud není, zobrazit welcome modal
   // (hra se spustí uvnitř saveName() až po zadání)
