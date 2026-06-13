@@ -188,7 +188,64 @@ h1 em{font-style:normal;color:var(--accent);}
 .t-legend i{display:inline-block;width:14px;height:14px;border-radius:3px;}
 .leg-target{background:#fbbf24;}
 .leg-hl{background:rgba(99,102,241,.35);}
+/* ── CHALLENGE / LEADERBOARD ── */
+.ch-banner{background:linear-gradient(90deg,var(--accent2),var(--accent));color:#fff;
+  font-size:11px;font-weight:700;text-align:center;padding:5px 10px;letter-spacing:.5px;
+  display:none;width:100%;max-width:480px;}
+.ch-banner.show{display:block;}
+#cbox,#sbox{max-width:370px;width:93vw;}
+#lbox{max-width:480px;width:96vw;max-height:88vh;overflow-y:auto;}
+.ch-sec{background:var(--surface2);border-radius:12px;padding:13px;margin-bottom:9px;text-align:left;}
+.ch-sec-t{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:9px;}
+.ch-dr{display:flex;gap:5px;margin-bottom:9px;}
+.ch-btn{width:100%;padding:11px;border:none;border-radius:var(--r);background:var(--accent);
+  color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s;margin-top:4px;}
+.ch-btn:hover{opacity:.85;}.ch-btn.s{background:var(--surface);border:1px solid rgba(255,255,255,.2);}
+.share-url{background:var(--bg);border:1px solid rgba(255,255,255,.12);border-radius:8px;
+  padding:9px 11px;font-size:11px;color:var(--dim);word-break:break-all;
+  cursor:pointer;text-align:left;margin:6px 0;}
+.share-url:hover{border-color:var(--accent);}
+.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+.sc-i{background:var(--surface2);border-radius:10px;padding:11px 5px;}
+.sc-v{font-size:25px;font-weight:800;color:var(--accent);font-family:monospace;}
+.sc-l{font-size:10px;color:var(--dim);margin-top:2px;}
+.sc-tot{font-size:40px;font-weight:800;color:var(--accent2);font-family:monospace;margin:6px 0;}
+.sc-tl{font-size:11px;color:var(--dim);margin-bottom:13px;}
+input.ni{width:100%;background:var(--surface2);border:1px solid rgba(255,255,255,.2);
+  border-radius:var(--r);color:var(--text);padding:10px 13px;font-size:15px;
+  margin:0 0 9px;outline:none;box-sizing:border-box;}
+input.ni:focus{border-color:var(--accent);}
+input.ni::placeholder{color:var(--dim);}
+.or-s{color:var(--dim);font-size:11px;margin:6px 0;position:relative;text-align:center;}
+.or-s::before,.or-s::after{content:'';position:absolute;top:50%;width:42%;
+  height:1px;background:rgba(255,255,255,.1);}
+.or-s::before{left:0;}.or-s::after{right:0;}
+.g-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:10px;border:1px solid rgba(255,255,255,.2);border-radius:var(--r);
+  background:var(--surface2);color:var(--text);font-size:13px;font-weight:600;
+  cursor:pointer;margin-bottom:9px;transition:background .12s;}
+.g-btn:hover{background:var(--surface);}
+.auth-row{display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface2);border-radius:var(--r);padding:7px 11px;margin-bottom:9px;font-size:12px;}
+.auth-out{background:none;border:none;color:var(--dim);cursor:pointer;font-size:11px;padding:0;}
+.auth-out:hover{color:var(--text);}
+.lb-h{font-size:17px;font-weight:800;margin-bottom:3px;}
+.lb-s{font-size:11px;color:var(--dim);margin-bottom:11px;}
+table.lbt{width:100%;border-collapse:collapse;}
+table.lbt th{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;
+  padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left;}
+table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.05);}
+.lb-1 td{background:rgba(251,191,36,.12);}.lb-2 td{background:rgba(203,213,225,.06);}
+.lb-3 td{background:rgba(234,88,12,.08);}.lb-me td{background:rgba(99,102,241,.14);}
+.lb-empty{color:var(--dim);font-size:13px;padding:28px 0;text-align:center;}
+.fb-note{font-size:11px;color:var(--dim);background:rgba(99,102,241,.08);
+  border-radius:8px;padding:8px 11px;margin-bottom:9px;text-align:left;}
 </style>
+<!-- Firebase 8 compat SDK — aktivuje se po nastavení FB_CFG -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
 
@@ -208,6 +265,7 @@ h1 em{font-style:normal;color:var(--accent);}
   </div>
 </header>
 
+<div id="ch-banner" class="ch-banner"><span id="ch-btext"></span></div>
 <div id="gw"><div id="grid"></div></div>
 
 <div id="ctrls">
@@ -218,6 +276,7 @@ h1 em{font-style:normal;color:var(--accent);}
     <button class="ab" onclick="erase()" title="Guma (Del)"><span class="ai">⌫</span>Guma</button>
     <button class="ab" id="hBtn" onclick="hint()" title="Nápověda (H)"><span class="ai">💡</span><span id="hc">3</span></button>
     <button class="ab" onclick="openTutorial()" title="Jak hrají mistři (T)"><span class="ai">🎓</span>Mistři</button>
+    <button class="ab" onclick="openChallenge()" title="Výzva (V)"><span class="ai">🏆</span>Výzva</button>
   </div>
   <div class="numpad" id="numpad"></div>
 </div>
@@ -276,6 +335,76 @@ h1 em{font-style:normal;color:var(--accent);}
     <div class="t-ctrls">
       <button id="tprevBtn" onclick="tPrev()" disabled>◀ Zpět</button>
       <button id="tnextBtn" onclick="tNext()">Další ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VÝZVA MODAL ═══ -->
+<div id="cov" class="ov">
+  <div class="ovbox" id="cbox">
+    <h2 style="margin-bottom:4px">🏆 Výzva</h2>
+    <p style="color:var(--dim);font-size:12px;margin-bottom:12px">Stejná hra pro všechny — srovnej časy!</p>
+    <div id="auth-row" class="auth-row" style="display:none">
+      <span>👤 <span id="auth-nm"></span></span>
+      <button class="auth-out" onclick="fbOut()">Odhlásit</button>
+    </div>
+    <div class="ch-sec">
+      <div class="ch-sec-t">📅 Dnešní výzva</div>
+      <div class="ch-dr">
+        <button class="db" data-d="easy"   onclick="CDdiff('easy')">Lehká</button>
+        <button class="db on" data-d="medium" onclick="CDdiff('medium')">Střední</button>
+        <button class="db" data-d="hard"   onclick="CDdiff('hard')">Těžká</button>
+        <button class="db" data-d="expert" onclick="CDdiff('expert')">Expert</button>
+      </div>
+      <button class="ch-btn" onclick="startDaily()">▶ Hrát dnešní výzvu</button>
+    </div>
+    <div class="ch-sec">
+      <div class="ch-sec-t">🔗 Sdílená výzva</div>
+      <div id="share-box" style="display:none">
+        <div class="share-url" onclick="copyUrl()" id="share-url">Klikni pro kopírování odkazu</div>
+      </div>
+      <button class="ch-btn" onclick="createChallenge()">➕ Vytvořit novou výzvu &amp; sdílet</button>
+      <button class="ch-btn s" style="margin-top:6px" onclick="showLB(C.cid||todayCid())">📊 Zobrazit tabulku</button>
+    </div>
+    <button class="ch-btn s" onclick="closeOv2('cov')">Zavřít</button>
+  </div>
+</div>
+
+<!-- ═══ ODESLAT SKÓRE MODAL ═══ -->
+<div id="sov" class="ov">
+  <div class="ovbox" id="sbox">
+    <h2 style="margin-bottom:6px">🎉 Výzva splněna!</h2>
+    <div id="auth-row2" class="auth-row" style="display:none">
+      <span>👤 <span id="auth-nm2"></span></span>
+      <button class="auth-out" onclick="fbOut()">Odhlásit</button>
+    </div>
+    <div class="sc-grid">
+      <div class="sc-i"><div class="sc-v" id="sc-t">0:00</div><div class="sc-l">Čas</div></div>
+      <div class="sc-i"><div class="sc-v" id="sc-e">0</div><div class="sc-l">Chyby</div></div>
+      <div class="sc-i"><div class="sc-v" id="sc-h">0</div><div class="sc-l">Nápovědy</div></div>
+    </div>
+    <div class="sc-tot" id="sc-s">0</div>
+    <div class="sc-tl">Celkové skóre <small>(nižší = lepší)</small></div>
+    <input class="ni" id="score-name" type="text" maxlength="20" placeholder="Tvoje přezdívka…">
+    <div id="or-sep" class="or-s" style="display:none">nebo</div>
+    <button id="g-btn" class="g-btn" onclick="fbGoogle()" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.2 33.6 29.6 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l6.1-6.1C34.5 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.4-.2-2.7-.5-4z"/></svg>
+      Přihlásit přes Google
+    </button>
+    <button class="ch-btn" onclick="sendScore()">✅ Odeslat výsledek</button>
+    <button class="ch-btn s" style="margin-top:6px" onclick="closeOv2('sov');showLB(C.cid)">📊 Přejít na tabulku</button>
+  </div>
+</div>
+
+<!-- ═══ TABULKA MODAL ═══ -->
+<div id="lov" class="ov" style="padding:10px 0;overflow-y:auto;">
+  <div class="ovbox" id="lbox">
+    <div class="lb-h">🏆 Výsledková tabulka</div>
+    <div class="lb-s" id="lb-sub"></div>
+    <div id="lb-body"><div class="lb-empty">Načítám…</div></div>
+    <div style="display:flex;gap:7px;margin-top:12px">
+      <button class="ch-btn" onclick="openChallenge()">Nová výzva</button>
+      <button class="ch-btn s" onclick="closeOv2('lov')">Zavřít</button>
     </div>
   </div>
 </div>
@@ -399,6 +528,9 @@ function setDiff(d){
 }
 
 function newGame(){
+  C.mode=false;
+  document.getElementById('ch-banner').className='ch-banner';
+  history.replaceState(null,'','#');
   stopTimer();closeOvs();
   toast('Generuji hru, Pišto… ⏳',60000);
   setTimeout(()=>{
@@ -511,10 +643,14 @@ function checkWin(){
   render();
   setTimeout(()=>{
     confetti();
-    document.getElementById('wtitle').textContent='🎉 '+pick('win');
-    document.getElementById('wtime').textContent=fmt(t);
-    document.getElementById('wmsg').textContent=isRec?pick('rec'):`Čas: ${fmt(t)}`;
-    document.getElementById('wov').classList.add('show');
+    if(C.mode){
+      setTimeout(openScore,600);
+    }else{
+      document.getElementById('wtitle').textContent='🎉 '+pick('win');
+      document.getElementById('wtime').textContent=fmt(t);
+      document.getElementById('wmsg').textContent=isRec?pick('rec'):`Čas: ${fmt(t)}`;
+      document.getElementById('wov').classList.add('show');
+    }
   },350);
 }
 
@@ -593,6 +729,294 @@ function confetti(){
     },i*12);
   }
 }
+
+// ═══════════════════════════════════════════
+// ⚙️  FIREBASE CONFIG
+// Nahraď svými hodnotami z Firebase konzole:
+// console.firebase.google.com → projekt → webová app → SDK
+// ═══════════════════════════════════════════
+const FB_CFG={
+  apiKey:"YOUR_API_KEY",
+  authDomain:"YOUR_PROJECT.firebaseapp.com",
+  projectId:"YOUR_PROJECT_ID"
+};
+const FB_ON=FB_CFG.apiKey!=="YOUR_API_KEY";
+let fbDb=null,fbAuth=null,fbUser=null;
+
+// ═══════════════════════════════════════════
+// SEEDED RNG — Mulberry32
+// ═══════════════════════════════════════════
+function mkRng(seed){
+  let s=[...String(seed)].reduce((h,c)=>(Math.imul(31,h)+c.charCodeAt(0))|0,0x9e3779b9>>>0);
+  return()=>{s+=0x6D2B79F5;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+}
+function sShuf(a,rng){for(let i=a.length-1;i>0;i--){const j=rng()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+function sSolve(g,rng){
+  const cell=mrv(g);if(!cell)return true;if(!cell.k)return false;
+  const{r,c}=cell;const cds=candidates(g,r,c);sShuf(cds,rng);
+  for(const n of cds){g[r][c]=n;if(sSolve(g,rng))return true;g[r][c]=0;}
+  return false;
+}
+function genSeeded(cid,diff){
+  const rng=mkRng(cid);
+  const target={easy:40,medium:33,hard:27,expert:22}[diff]||33;
+  const sol=Array.from({length:9},()=>Array(9).fill(0));
+  sSolve(sol,rng);
+  const puz=sol.map(r=>[...r]);
+  const pos=sShuf([...Array(81).keys()],mkRng(cid+'~pos'));
+  let kept=81;
+  for(const idx of pos){
+    if(kept<=target)break;
+    const r2=idx/9|0,c2=idx%9,v=puz[r2][c2];
+    puz[r2][c2]=0;
+    if(countSols(puz.map(r3=>[...r3]))===1)kept--;
+    else puz[r2][c2]=v;
+  }
+  return{sol,puz};
+}
+
+// ═══════════════════════════════════════════
+// CHALLENGE STATE
+// ═══════════════════════════════════════════
+const C={mode:false,cid:'',diff:'medium',cdDiff:'medium'};
+
+function todayCid(d){
+  const dd=d||C.cdDiff;
+  const dt=new Date().toISOString().slice(0,10);
+  return`daily-${dd}-${dt}`;
+}
+function getUrlCid(){
+  const m=location.hash.match(/[#&]c=([^&]+)/);
+  return m?decodeURIComponent(m[1]):null;
+}
+
+// ═══════════════════════════════════════════
+// FIREBASE — init & auth
+// ═══════════════════════════════════════════
+function initFB(){
+  if(!FB_ON)return;
+  if(typeof firebase==='undefined'){setTimeout(initFB,400);return;}
+  try{
+    if(!firebase.apps.length)firebase.initializeApp(FB_CFG);
+    fbDb=firebase.firestore();
+    fbAuth=firebase.auth();
+    fbAuth.onAuthStateChanged(u=>{fbUser=u;syncAuthUI();});
+    document.getElementById('g-btn').style.display='flex';
+    document.getElementById('or-sep').style.display='block';
+  }catch(e){console.warn('Firebase init error:',e);}
+}
+
+function syncAuthUI(){
+  const nm=fbUser?.displayName||fbUser?.email||null;
+  ['auth-row','auth-row2'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.style.display=nm?'flex':'none';
+    if(nm)document.getElementById(['auth-nm','auth-nm2'][i]).textContent=nm;
+  });
+  const inp=document.getElementById('score-name');
+  if(nm&&inp&&!inp.value)inp.value=nm;
+}
+
+function fbGoogle(){
+  if(!fbAuth)return;
+  fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>toast('Chyba: '+e.message));
+}
+function fbOut(){if(fbAuth)fbAuth.signOut();}
+
+// ═══════════════════════════════════════════
+// CHALLENGE UI
+// ═══════════════════════════════════════════
+function openChallenge(){
+  syncAuthUI();CDdiff(C.cdDiff);
+  const urlCid=getUrlCid();
+  if(urlCid)showShareUrl(urlCid);
+  else document.getElementById('share-box').style.display='none';
+  document.getElementById('cov').classList.add('show');
+}
+
+function CDdiff(d){
+  C.cdDiff=d;
+  document.querySelectorAll('#cbox .ch-dr .db').forEach(b=>b.classList.toggle('on',b.dataset.d===d));
+}
+
+function showShareUrl(cid){
+  const url=location.origin+location.pathname+'#c='+cid;
+  const el=document.getElementById('share-url');
+  el.textContent=url;el.dataset.url=url;
+  document.getElementById('share-box').style.display='block';
+}
+
+function copyUrl(){
+  const url=document.getElementById('share-url').dataset.url;
+  if(!url)return;
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>toast('Odkaz zkopírován! 📋'));}
+  else{document.getElementById('share-url').select?.();toast('Zkopíruj odkaz ručně');}
+}
+
+function startDaily(){closeOv2('cov');launchChallenge(todayCid());}
+
+function createChallenge(){
+  const abc='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const rand=Array.from({length:8},()=>abc[Math.random()*62|0]).join('');
+  const cid=`chal-${C.cdDiff}-${rand}`;
+  showShareUrl(cid);
+  history.replaceState(null,'','#c='+cid);
+  closeOv2('cov');
+  launchChallenge(cid);
+}
+
+function launchChallenge(cid){
+  const parts=cid.split('-');
+  const diff=['easy','medium','hard','expert'].find(d=>parts.indexOf(d)>=0)||'medium';
+  C.mode=true;C.cid=cid;C.diff=diff;
+
+  const isDay=cid.startsWith('daily-');
+  document.getElementById('ch-banner').className='ch-banner show';
+  document.getElementById('ch-btext').textContent=
+    isDay?`📅 Denní výzva · ${diff}`:`🔗 Sdílená výzva · ${diff}`;
+
+  history.replaceState(null,'','#c='+cid);
+  G.diff=diff;
+  document.querySelectorAll('.db:not(#cbox .db)').forEach(b=>b.classList.toggle('on',b.dataset.d===diff));
+
+  stopTimer();closeOvs();
+  toast('Generuji výzvu… ⏳',60000);
+  setTimeout(()=>{
+    const{sol,puz}=genSeeded(cid,diff);
+    G.sol=sol;G.puz=puz;
+    G.board=puz.map(r=>[...r]);
+    G.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
+    G.fixed=puz.map(r=>r.map(v=>v!==0));
+    G.sel=null;G.errs=0;G.hints=3;G.hist=[];
+    G.noteMode=false;G.over=false;G.won=false;
+    document.getElementById('nBtn').classList.remove('on');
+    updErrs();updHints();startTimer();render();
+    toast('🏆 Výzva spuštěna!');
+  },30);
+}
+
+function closeOv2(id){document.getElementById(id).classList.remove('show');}
+
+// ═══════════════════════════════════════════
+// SCORE — odeslání
+// ═══════════════════════════════════════════
+function openScore(){
+  const t=G.secs,e=G.errs,h=3-G.hints,s=t+e*60+h*30;
+  document.getElementById('sc-t').textContent=fmt(t);
+  document.getElementById('sc-e').textContent=e;
+  document.getElementById('sc-h').textContent=h;
+  document.getElementById('sc-s').textContent=s;
+  const saved=localStorage.getItem('pName')||'';
+  const inp=document.getElementById('score-name');
+  if(fbUser)inp.value=fbUser.displayName||fbUser.email||saved;
+  else if(saved)inp.value=saved;
+  else inp.value='';
+  syncAuthUI();
+  document.getElementById('sov').classList.add('show');
+}
+
+async function sendScore(){
+  const name=(document.getElementById('score-name').value.trim()||fbUser?.displayName||'Anonym').slice(0,20);
+  const t=G.secs,e=G.errs,h=3-G.hints,s=t+e*60+h*30;
+  const uid=fbUser?.uid||null;
+  const entry={cid:C.cid,name,uid,t,e,h,s,ts:Date.now()};
+
+  // Vždy uložit lokálně
+  const key='lb:'+C.cid;
+  const loc=JSON.parse(localStorage.getItem(key)||'[]');
+  const myIdx=loc.findIndex(x=>(uid&&x.uid===uid)||(x.name===name&&!uid));
+  if(myIdx>=0)loc[myIdx]=entry;else loc.push(entry);
+  localStorage.setItem(key,JSON.stringify(loc));
+  localStorage.setItem('pName',name);
+
+  if(FB_ON&&fbDb){
+    try{
+      if(uid){
+        const q=await fbDb.collection('scores')
+          .where('cid','==',C.cid).where('uid','==',uid).limit(1).get();
+        if(q.empty)await fbDb.collection('scores').add(entry);
+        else await q.docs[0].ref.set(entry);
+      }else{
+        await fbDb.collection('scores').add(entry);
+      }
+      toast('Skóre uloženo online! ✅');
+    }catch(err){toast('Uloženo lokálně 💾');}
+  }else{
+    toast('Uloženo lokálně 💾 (Firebase není nastavena)');
+  }
+
+  closeOv2('sov');
+  showLB(C.cid);
+}
+
+// ═══════════════════════════════════════════
+// LEADERBOARD — zobrazení
+// ═══════════════════════════════════════════
+async function showLB(cid){
+  if(!cid)cid=C.cid||todayCid();
+  document.getElementById('lov').classList.add('show');
+  const parts=cid.split('-'),isDay=cid.startsWith('daily-');
+  const diff=parts[1]||'';
+  const date=parts.slice(2).join('-');
+  document.getElementById('lb-sub').textContent=
+    isDay?`Denní výzva · ${diff} · ${date}`:`Sdílená výzva · ${diff}`;
+  document.getElementById('lb-body').innerHTML='<div class="lb-empty">Načítám…</div>';
+
+  let scores=[];
+  if(FB_ON&&fbDb){
+    try{
+      const snap=await fbDb.collection('scores')
+        .where('cid','==',cid).orderBy('s').limit(50).get();
+      scores=snap.docs.map(d=>d.data());
+    }catch(err){console.warn('Firestore read:',err);}
+  }
+
+  // Sloučit s lokálními
+  const loc=JSON.parse(localStorage.getItem('lb:'+cid)||'[]');
+  const onK=new Set(scores.map(s=>s.uid?'u:'+s.uid:'n:'+s.name+':'+s.t));
+  loc.forEach(l=>{
+    const k=l.uid?'u:'+l.uid:'n:'+l.name+':'+l.t;
+    if(!onK.has(k))scores.push(l);
+  });
+  scores.sort((a,b)=>a.s-b.s);
+  renderLB(scores,cid);
+}
+
+function renderLB(rows,cid){
+  const myN=localStorage.getItem('pName');
+  const myUid=fbUser?.uid;
+  const el=document.getElementById('lb-body');
+  if(!rows.length){
+    el.innerHTML=`<div class="lb-empty">Zatím žádné výsledky.<br>Buď první, Pišto! 🏆</div>
+      ${!FB_ON?`<div class="fb-note">💡 Pro sdílení tabulky s ostatními nastav Firebase v kódu (fb.google.com → SDK config).</div>`:''}`;
+    return;
+  }
+  const MED=['🥇','🥈','🥉'],RC=['lb-1','lb-2','lb-3'];
+  const shareUrl=location.origin+location.pathname+'#c='+cid;
+  el.innerHTML=`<table class="lbt"><thead><tr>
+    <th>#</th><th>Jméno</th><th>Čas</th><th>Chyby</th><th>Nápovědy</th><th>Skóre</th>
+  </tr></thead><tbody>${
+    rows.slice(0,30).map((s,i)=>{
+      const me=(myUid&&s.uid===myUid)||(s.name===myN&&!myUid);
+      return`<tr class="${me?'lb-me':RC[i]||''}">
+        <td style="font-weight:800">${MED[i]||i+1}</td>
+        <td style="font-weight:600">${xEsc(s.name)}${me?' 👈':''}</td>
+        <td style="font-family:monospace">${fmt(s.t)}</td>
+        <td>${s.e}</td><td>${s.h}</td>
+        <td style="font-weight:800;color:var(--accent)">${s.s}</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>
+  <p style="font-size:10px;color:var(--dim);margin-top:8px;text-align:center">
+    Skóre = čas + chyby×60 + nápovědy×30 (nižší = lepší)
+  </p>
+  <div class="share-url" onclick="navigator.clipboard?.writeText('${shareUrl}').then(()=>toast('Zkopírováno! 📋'))" style="margin-top:10px">
+    🔗 ${shareUrl}
+  </div>`;
+}
+
+function xEsc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 // ═══════════════════════════════════════════
 // TUTORIAL — Jak hrají mistři
@@ -815,6 +1239,7 @@ document.addEventListener('keydown',e=>{
   if(k==='h'||k==='H'){hint();return;}
   if(k==='n'||k==='N'){newGame();return;}
   if(k==='t'||k==='T'){openTutorial();return;}
+  if(k==='v'||k==='V'){openChallenge();return;}
   if(!G.sel)return;
   const{r,c}=G.sel;
   if(k==='ArrowUp'||k==='w'){e.preventDefault();if(r>0)selCell(r-1,c);}
@@ -842,7 +1267,13 @@ document.addEventListener('keydown',e=>{
     b.className='nb';b.textContent=n;b.onclick=()=>enterNum(n);
     pad.appendChild(b);
   }
-  setDiff('medium');
+  // Načtout Firebase (pokud je nakonfigurovaná)
+  initFB();
+
+  // Zkontrolovat URL hash pro challenge
+  const urlCid=getUrlCid();
+  if(urlCid){launchChallenge(urlCid);}
+  else{setDiff('medium');}
 })();
 </script>
 </body>
