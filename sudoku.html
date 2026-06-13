@@ -183,7 +183,6 @@ h1 em{font-style:normal;color:var(--accent);}
   font-size:12px;font-weight:700;transition:all .12s;}
 .t-ctrls button:hover{background:var(--surface);}
 .t-ctrls button:disabled{opacity:.35;cursor:not-allowed;}
-#tplayBtn{background:var(--accent);border-color:var(--accent);}
 .t-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 .t-legend span{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px;}
 .t-legend i{display:inline-block;width:14px;height:14px;border-radius:3px;}
@@ -276,7 +275,6 @@ h1 em{font-style:normal;color:var(--accent);}
     </div>
     <div class="t-ctrls">
       <button id="tprevBtn" onclick="tPrev()" disabled>◀ Zpět</button>
-      <button id="tplayBtn" onclick="tPlayPause()">▶ Přehrát</button>
       <button id="tnextBtn" onclick="tNext()">Další ▶</button>
     </div>
   </div>
@@ -622,96 +620,111 @@ const TPUZ={
   ]
 };
 
-const T={diff:'easy',steps:[],idx:0,playing:false,intv:null};
+const T={diff:'easy',steps:[],idx:0};
 
-function tCands(b,r,c){
-  if(b[r][c])return new Set();
-  const u=new Set([0]);
-  for(let i=0;i<9;i++){u.add(b[r][i]);u.add(b[i][c]);u.add(b[3*(r/3|0)+(i/3|0)][3*(c/3|0)+i%3]);}
+// Compute all candidates for one cell fresh from the board
+function tGetCands(board,r,c){
+  if(board[r][c]!==0)return new Set();
+  const used=new Set();
+  for(let i=0;i<9;i++){
+    used.add(board[r][i]);
+    used.add(board[i][c]);
+    used.add(board[(r/3|0)*3+(i/3|0)][(c/3|0)*3+i%3]);
+  }
   const res=new Set();
-  for(let n=1;n<=9;n++)if(!u.has(n))res.add(n);
+  for(let n=1;n<=9;n++)if(!used.has(n))res.add(n);
   return res;
 }
 
-function buildTSteps(puz){
+function buildTSteps(puzzle){
   const steps=[];
-  const b=puz.map(r=>[...r]);
-  const cands=Array.from({length:9},(_,r)=>Array.from({length:9},(_,c)=>tCands(b,r,c)));
+  const board=puzzle.map(row=>[...row]);
 
-  function place(r,c,val,type,hlArr,techName,reason){
-    b[r][c]=val;
-    for(let i=0;i<9;i++){cands[r][i].delete(val);cands[i][c].delete(val);}
-    const br=(r/3|0)*3,bc=(c/3|0)*3;
-    for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)cands[br+dr][bc+dc].delete(val);
-    cands[r][c]=new Set();
-    const excl=[1,2,3,4,5,6,7,8,9].filter(n=>n!==val);
-    steps.push({board:b.map(row=>[...row]),r,c,val,hlCells:new Set(hlArr),techName,reason,excl});
+  function addStep(r,c,val,techName,reason,hlList){
+    board[r][c]=val;
+    steps.push({
+      board:board.map(row=>[...row]),
+      r,c,val,techName,reason,
+      hlCells:new Set(hlList)
+    });
   }
 
-  let maxIter=150;
-  while(maxIter-->0){
+  for(let iter=0;iter<100;iter++){
+    // Recompute all candidates fresh each pass
+    const C=[];
+    for(let r=0;r<9;r++){C[r]=[];for(let c=0;c<9;c++)C[r][c]=tGetCands(board,r,c);}
+
     let found=false;
 
-    // Naked Singles
-    for(let r=0;r<9&&!found;r++)for(let c=0;c<9&&!found;c++){
-      if(b[r][c]||cands[r][c].size!==1)continue;
-      const val=[...cands[r][c]][0];
+    // 1. Naked Singles — jen jedna možnost v buňce
+    ns: for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      if(board[r][c]!==0||C[r][c].size!==1)continue;
+      const val=[...C[r][c]][0];
       const hl=[];
       for(let i=0;i<9;i++){hl.push(`${r},${i}`);hl.push(`${i},${c}`);}
       const br=(r/3|0)*3,bc=(c/3|0)*3;
       for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)hl.push(`${br+dr},${bc+dc}`);
-      place(r,c,val,'naked',hl.filter(k=>k!==`${r},${c}`),
-        'Jednoduchá eliminace (Naked Single)',
-        `Políčko <b>R${r+1}·S${c+1}</b> může obsahovat jen číslo <b>${val}</b>.<br>`+
-        `Čísla ${[1,2,3,4,5,6,7,8,9].filter(n=>n!==val).join(', ')} jsou již v jeho řádku, sloupci nebo bloku.`);
-      found=true;
+      const excl=[1,2,3,4,5,6,7,8,9].filter(n=>n!==val).join(', ');
+      addStep(r,c,val,
+        '🔍 Jednoduchá eliminace (Naked Single)',
+        `Do políčka <b>R${r+1}·S${c+1}</b> patří jen číslo <b>${val}</b>.<br>`+
+        `Čísla ${excl} jsou vyloučena řádkem, sloupcem nebo 3×3 blokem tohoto políčka.`,
+        hl.filter(k=>k!==`${r},${c}`)
+      );
+      found=true;break ns;
     }
 
-    // Hidden Singles — řádky
-    if(!found)for(let r=0;r<9&&!found;r++)for(let n=1;n<=9&&!found;n++){
-      const cells=[];
-      for(let c=0;c<9;c++)if(!b[r][c]&&cands[r][c].has(n))cells.push(c);
-      if(cells.length!==1)continue;
-      const c=cells[0];
+    // 2. Hidden Singles — číslo v řádku možné jen na jednom místě
+    if(!found){hs_row:for(let r=0;r<9;r++)for(let n=1;n<=9;n++){
+      const cols=[];
+      for(let c=0;c<9;c++)if(board[r][c]===0&&C[r][c].has(n))cols.push(c);
+      if(cols.length!==1)continue;
+      const c=cols[0];
       const hl=[];for(let i=0;i<9;i++)hl.push(`${r},${i}`);
-      place(r,c,n,'h-row',hl.filter(k=>k!==`${r},${c}`),
-        'Skrytá jednička v řádku (Hidden Single)',
-        `Číslo <b>${n}</b> může v <b>řádku ${r+1}</b> stát jen na pozici sloupce ${c+1}.<br>`+
-        `Ve všech ostatních buňkách řádku ${r+1} je číslo ${n} vyloučeno sloupcovými nebo blokovými omezeními.`);
-      found=true;
-    }
+      addStep(r,c,n,
+        '👁 Skrytá jednička v řádku (Hidden Single)',
+        `Číslo <b>${n}</b> může v celém <b>řádku ${r+1}</b> stát jen na místě sloupce ${c+1}.<br>`+
+        `V ostatních prázdných buňkách tohoto řádku je ${n} vyloučeno jejich sloupcem nebo blokem.`,
+        hl.filter(k=>k!==`${r},${c}`)
+      );
+      found=true;break hs_row;
+    }}
 
-    // Hidden Singles — sloupce
-    if(!found)for(let c=0;c<9&&!found;c++)for(let n=1;n<=9&&!found;n++){
-      const cells=[];
-      for(let r=0;r<9;r++)if(!b[r][c]&&cands[r][c].has(n))cells.push(r);
-      if(cells.length!==1)continue;
-      const r=cells[0];
+    // 3. Hidden Singles — číslo ve sloupci možné jen na jednom místě
+    if(!found){hs_col:for(let c=0;c<9;c++)for(let n=1;n<=9;n++){
+      const rows=[];
+      for(let r=0;r<9;r++)if(board[r][c]===0&&C[r][c].has(n))rows.push(r);
+      if(rows.length!==1)continue;
+      const r=rows[0];
       const hl=[];for(let i=0;i<9;i++)hl.push(`${i},${c}`);
-      place(r,c,n,'h-col',hl.filter(k=>k!==`${r},${c}`),
-        'Skrytá jednička ve sloupci (Hidden Single)',
-        `Číslo <b>${n}</b> může v <b>sloupci ${c+1}</b> stát jen na pozici řádku ${r+1}.<br>`+
-        `Ve všech ostatních buňkách sloupce ${c+1} je číslo ${n} vyloučeno řádkovými nebo blokovými omezeními.`);
-      found=true;
-    }
+      addStep(r,c,n,
+        '👁 Skrytá jednička ve sloupci (Hidden Single)',
+        `Číslo <b>${n}</b> může v celém <b>sloupci ${c+1}</b> stát jen na místě řádku ${r+1}.<br>`+
+        `V ostatních prázdných buňkách tohoto sloupce je ${n} vyloučeno jejich řádkem nebo blokem.`,
+        hl.filter(k=>k!==`${r},${c}`)
+      );
+      found=true;break hs_col;
+    }}
 
-    // Hidden Singles — bloky
-    if(!found)for(let br=0;br<3&&!found;br++)for(let bc=0;bc<3&&!found;bc++)for(let n=1;n<=9&&!found;n++){
-      const cells=[];
+    // 4. Hidden Singles — číslo v bloku možné jen na jednom místě
+    if(!found){hs_box:for(let br=0;br<3;br++)for(let bc=0;bc<3;bc++)for(let n=1;n<=9;n++){
+      const hits=[];
       for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++){
         const r=br*3+dr,c=bc*3+dc;
-        if(!b[r][c]&&cands[r][c].has(n))cells.push({r,c});
+        if(board[r][c]===0&&C[r][c].has(n))hits.push([r,c]);
       }
-      if(cells.length!==1)continue;
-      const{r,c}=cells[0];
+      if(hits.length!==1)continue;
+      const [r,c]=hits[0];
       const hl=[];
       for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)hl.push(`${br*3+dr},${bc*3+dc}`);
-      place(r,c,n,'h-box',hl.filter(k=>k!==`${r},${c}`),
-        'Skrytá jednička v bloku (Hidden Single)',
-        `Číslo <b>${n}</b> může v tomto <b>3×3 bloku</b> stát jen na pozici <b>R${r+1}·S${c+1}</b>.<br>`+
-        `Ve všech ostatních prázdných buňkách tohoto bloku je číslo ${n} vyloučeno.`);
-      found=true;
-    }
+      addStep(r,c,n,
+        '👁 Skrytá jednička v bloku (Hidden Single)',
+        `Číslo <b>${n}</b> může v tomto <b>3×3 bloku</b> stát jen na místě <b>R${r+1}·S${c+1}</b>.<br>`+
+        `V ostatních prázdných buňkách tohoto bloku je ${n} vyloučeno jejich řádkem nebo sloupcem.`,
+        hl.filter(k=>k!==`${r},${c}`)
+      );
+      found=true;break hs_box;
+    }}
 
     if(!found)break;
   }
@@ -723,7 +736,7 @@ function openTutorial(){
   buildTGrid();
   setTDiff('easy');
 }
-function closeTutorial(){tStop();document.getElementById('tov').classList.remove('show');}
+function closeTutorial(){document.getElementById('tov').classList.remove('show');}
 
 function buildTGrid(){
   const g=document.getElementById('tgrid');g.innerHTML='';
@@ -737,7 +750,6 @@ function buildTGrid(){
 function setTDiff(d){
   T.diff=d;
   document.querySelectorAll('.ttab').forEach(b=>b.classList.toggle('on',b.dataset.d===d));
-  tStop();
   T.steps=buildTSteps(TPUZ[d]);
   T.idx=0;
   renderTStep();
@@ -786,26 +798,10 @@ function renderTStep(){
 
   document.getElementById('tprevBtn').disabled=T.idx===0;
   document.getElementById('tnextBtn').disabled=T.idx>=total;
-  if(T.idx>=total)tStop();
 }
 
 function tNext(){if(T.idx<T.steps.length){T.idx++;renderTStep();}}
 function tPrev(){if(T.idx>0){T.idx--;renderTStep();}}
-
-function tPlayPause(){T.playing?tStop():tPlay();}
-function tPlay(){
-  T.playing=true;
-  document.getElementById('tplayBtn').textContent='⏸ Pauza';
-  T.intv=setInterval(()=>{
-    if(T.idx>=T.steps.length){tStop();return;}
-    T.idx++;renderTStep();
-  },1600);
-}
-function tStop(){
-  T.playing=false;clearInterval(T.intv);
-  const b=document.getElementById('tplayBtn');
-  if(b)b.textContent='▶ Přehrát';
-}
 
 // ═══════════════════════════════════════════
 // KEYBOARD
