@@ -85,6 +85,10 @@ h1 em{font-style:normal;color:var(--accent);}
   align-items:center;justify-content:center;transition:all .1s;}
 .nb:hover{background:var(--surface2);transform:scale(1.06);}
 .nb:active{transform:scale(.93);}
+.nb.done{opacity:.28;pointer-events:none;text-decoration:line-through;}
+.streak-badge{font-size:11px;font-weight:800;color:#f97316;background:rgba(249,115,22,.15);
+  border-radius:20px;padding:2px 9px;display:none;letter-spacing:.3px;}
+.pause-msg{font-size:42px;margin-bottom:6px;}
 
 /* ── BEST TIMES ── */
 #bt{width:100%;max-width:364px;padding:4px 2px 0;display:flex;gap:5px;}
@@ -256,6 +260,7 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
     <div class="stats">
       <span id="timer">0:00</span>
       <span class="errcnt" id="errs">❤️❤️❤️</span>
+      <span class="streak-badge" id="streak-badge"></span>
     </div>
   </div>
   <div class="diffrow">
@@ -278,8 +283,10 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
     <button class="ab" id="hBtn" onclick="hint()" title="Nápověda (H)"><span class="ai">💡</span><span id="hc">3</span></button>
   </div>
   <div class="actrow">
+    <button class="ab" id="pBtn" onclick="togglePause()" title="Pauza (Space)"><span class="ai">⏸</span>Pauza</button>
     <button class="ab" onclick="openChallenge()" title="Výzva (V)"><span class="ai">🏆</span>Výzva</button>
     <button class="ab" onclick="showLB(C.cid||todayCid())" title="Tabulka výsledků"><span class="ai">📊</span>Tabulka</button>
+    <button class="ab" onclick="openStats()" title="Moje statistiky"><span class="ai">📈</span>Stat</button>
     <button class="ab" onclick="openTutorial()" title="Jak hrají mistři (T)"><span class="ai">🎓</span>Mistři</button>
   </div>
   <div class="numpad" id="numpad"></div>
@@ -299,6 +306,7 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
     <p id="wmsg"></p>
     <div class="ovbtns">
       <button class="bp" onclick="newGame()">Nová hra</button>
+      <button class="bp bs" onclick="shareResult()">📤 Sdílet</button>
       <button class="bp bs" onclick="closeOv()">Zůstat</button>
     </div>
   </div>
@@ -312,6 +320,25 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
       <button class="bp" onclick="newGame()">Nová hra</button>
       <button class="bp bs" onclick="cont()">Pokračovat</button>
     </div>
+  </div>
+</div>
+
+<!-- PAUZA OVERLAY -->
+<div id="pause-ov" class="ov">
+  <div class="ovbox" style="text-align:center;max-width:260px">
+    <div class="pause-msg">⏸</div>
+    <h2 style="margin-bottom:8px">Pozastaveno</h2>
+    <p style="color:var(--dim);font-size:13px;margin-bottom:18px">Čas je zastaven. Nikdo nevidí tvoji desku 😉</p>
+    <button class="ch-btn" onclick="togglePause()">▶ Pokračovat</button>
+  </div>
+</div>
+
+<!-- STATISTIKY OVERLAY -->
+<div id="stov" class="ov">
+  <div class="ovbox">
+    <h2>📈 Moje statistiky</h2>
+    <div id="st-body" style="margin-top:8px"></div>
+    <button class="ch-btn s" style="margin-top:14px" onclick="closeOv2('stov')">Zavřít</button>
   </div>
 </div>
 
@@ -505,6 +532,36 @@ function genPuzzle(diff){
 let playerName = localStorage.getItem('pName') || '';
 
 // ═══════════════════════════════════════════
+// STATS — počítadlo her per obtížnost
+// ═══════════════════════════════════════════
+const STATS=(()=>{
+  const s=JSON.parse(localStorage.getItem('stats')||'{}');
+  const d={games:0,wins:0,bestTime:null,totalTime:0};
+  return{easy:{...d,...s.easy},medium:{...d,...s.medium},hard:{...d,...s.hard},expert:{...d,...s.expert}};
+})();
+function saveStats(){localStorage.setItem('stats',JSON.stringify(STATS));}
+
+// ═══════════════════════════════════════════
+// STREAK — série denních výzev
+// ═══════════════════════════════════════════
+const STREAK=JSON.parse(localStorage.getItem('streak')||'{"n":0,"last":""}');
+function updStreak(){
+  const today=new Date().toISOString().slice(0,10);
+  const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  if(STREAK.last===today)return;
+  STREAK.n=STREAK.last===yest?STREAK.n+1:1;
+  STREAK.last=today;
+  localStorage.setItem('streak',JSON.stringify(STREAK));
+  updStreakBadge();
+}
+function updStreakBadge(){
+  const el=document.getElementById('streak-badge');
+  if(!el)return;
+  if(STREAK.n>=2){el.textContent='🔥 '+STREAK.n;el.style.display='';}
+  else el.style.display='none';
+}
+
+// ═══════════════════════════════════════════
 // MESSAGES — {n} se nahradí jménem hráče
 // ═══════════════════════════════════════════
 const M={
@@ -535,7 +592,7 @@ const G={
   sol:null,puz:null,board:null,notes:null,fixed:null,
   sel:null,errs:0,hints:3,hist:[],
   noteMode:false,timerInt:null,secs:0,
-  over:false,won:false,diff:'medium',
+  over:false,won:false,paused:false,diff:'medium',
   best:{easy:null,medium:null,hard:null,expert:null}
 };
 
@@ -564,7 +621,8 @@ function newGame(){
     G.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
     G.fixed=puz.map(r=>r.map(v=>v!==0));
     G.sel=null;G.errs=0;G.hints=3;G.hist=[];
-    G.noteMode=false;G.over=false;G.won=false;
+    G.noteMode=false;G.over=false;G.won=false;G.paused=false;
+    document.getElementById('pause-ov').classList.remove('show');
     document.getElementById('nBtn').classList.remove('on');
     updErrs();updHints();startTimer();render();
     toast(pick('start'));
@@ -599,7 +657,9 @@ function enterNum(n){
     G.errs++;updErrs();
     render();shakeCell(r,c);toast(pick('err'));
     if(G.errs>=3){
-      stopTimer();G.over=true;render();
+      stopTimer();G.over=true;
+      STATS[G.diff].games++;saveStats();
+      render();
       setTimeout(()=>{document.getElementById('gmsg').textContent=pick('go');document.getElementById('gov').classList.add('show');},500);
     }
   }else{
@@ -664,6 +724,10 @@ function checkWin(){
   const t=G.secs,d=G.diff;
   const isRec=!G.best[d]||t<G.best[d];
   if(isRec){G.best[d]=t;updBest();}
+  STATS[d].games++;STATS[d].wins++;STATS[d].totalTime+=t;
+  if(!STATS[d].bestTime||t<STATS[d].bestTime)STATS[d].bestTime=t;
+  saveStats();
+  if(C.mode)updStreak();
   render();
   setTimeout(()=>{
     confetti();
@@ -725,6 +789,60 @@ function render(){
   });
 
   document.getElementById('uBtn').disabled=!G.hist.length;
+  updNumpad();
+}
+
+function updNumpad(){
+  if(!G.board)return;
+  const cnt=Array(10).fill(0);
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(G.board[r][c])cnt[G.board[r][c]]++;
+  document.querySelectorAll('#numpad .nb').forEach(b=>{
+    b.classList.toggle('done',cnt[+b.textContent]===9);
+  });
+}
+
+function togglePause(){
+  if(G.over||G.won||!G.board)return;
+  G.paused=!G.paused;
+  const pov=document.getElementById('pause-ov');
+  const pb=document.getElementById('pBtn');
+  if(G.paused){
+    stopTimer();
+    pov.classList.add('show');
+    if(pb){pb.querySelector('.ai').textContent='▶';pb.lastChild.textContent='Hraj';}
+  }else{
+    G.timerInt=setInterval(()=>{G.secs++;document.getElementById('timer').textContent=fmt(G.secs);},1000);
+    pov.classList.remove('show');
+    if(pb){pb.querySelector('.ai').textContent='⏸';pb.lastChild.textContent='Pauza';}
+  }
+}
+
+function shareResult(){
+  const names={easy:'Lehká',medium:'Střední',hard:'Těžká',expert:'Expert'};
+  const hintsUsed=3-G.hints;
+  const text=`🔢 Sudoku – ${names[G.diff]||G.diff}\n⏱ ${fmt(G.secs)}  ✗ ${G.errs} chyb  💡 ${hintsUsed} nápov.\n📅 ${new Date().toLocaleDateString('cs-CZ')}\nhttps://stepos.github.io/small_games/sudoku.html`;
+  navigator.clipboard?.writeText(text).then(()=>toast('Výsledek zkopírován! 📤')).catch(()=>toast('Nelze zkopírovat'));
+}
+
+function openStats(){
+  const diffs=['easy','medium','hard','expert'];
+  const names={easy:'Lehká',medium:'Střední',hard:'Těžká',expert:'Expert'};
+  document.getElementById('st-body').innerHTML=`<table class="lbt">
+    <thead><tr><th>Obtížnost</th><th>Hry</th><th>Výhry</th><th>Nejlepší</th><th>Průměr</th></tr></thead>
+    <tbody>${diffs.map(d=>{
+      const s=STATS[d];
+      const pct=s.games?Math.round(100*s.wins/s.games)+'%':'—';
+      const avg=s.wins?fmt(Math.round(s.totalTime/s.wins)):'—';
+      return`<tr>
+        <td style="font-weight:700">${names[d]}</td>
+        <td>${s.games}</td>
+        <td>${s.wins}<span style="color:var(--dim);font-size:11px"> (${pct})</span></td>
+        <td style="font-family:monospace">${s.bestTime?fmt(s.bestTime):'—'}</td>
+        <td style="font-family:monospace">${avg}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>${STREAK.n>=2?`<div style="text-align:center;margin-top:14px;font-size:17px;font-weight:800">🔥 Série ${STREAK.n} dní v řadě!</div>`:''}`;
+  document.getElementById('stov').classList.add('show');
 }
 
 function shakeCell(r,c){
@@ -940,7 +1058,8 @@ function launchChallenge(cid){
     G.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
     G.fixed=puz.map(r=>r.map(v=>v!==0));
     G.sel=null;G.errs=0;G.hints=3;G.hist=[];
-    G.noteMode=false;G.over=false;G.won=false;
+    G.noteMode=false;G.over=false;G.won=false;G.paused=false;
+    document.getElementById('pause-ov').classList.remove('show');
     document.getElementById('nBtn').classList.remove('on');
     updErrs();updHints();startTimer();render();
     toast('🏆 Výzva spuštěna!');
@@ -1311,6 +1430,8 @@ function tPrev(){if(T.idx>0){T.idx--;renderTStep();}}
 // ═══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   const k=e.key;
+  if(k===' '){e.preventDefault();togglePause();return;}
+  if(G.paused)return;
   if(k>='1'&&k<='9'){e.preventDefault();enterNum(+k);return;}
   if(k==='Backspace'||k==='Delete'||k==='0'){e.preventDefault();erase();return;}
   if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();doUndo();return;}
@@ -1351,6 +1472,8 @@ document.addEventListener('keydown',e=>{
 
   // Načtout Firebase (pokud je nakonfigurovaná)
   initFB();
+  // Zobrazit streak badge pokud existuje
+  updStreakBadge();
 
   // Zkontrolovat jméno hráče — pokud není, zobrazit welcome modal
   // (hra se spustí uvnitř saveName() až po zadání)
