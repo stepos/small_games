@@ -130,6 +130,65 @@ h1 em{font-style:normal;color:var(--accent);}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 @keyframes pop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes hflash{0%,100%{background:var(--sel)}50%{background:#7c3aed;}}
+
+/* ── TUTORIAL ── */
+#tov{overflow-y:auto;padding:10px 0;}
+#tbox{background:var(--surface);border-radius:20px;padding:18px;
+  max-width:420px;width:95vw;animation:pop .38s cubic-bezier(.175,.885,.32,1.275);
+  display:flex;flex-direction:column;gap:10px;max-height:96vh;overflow-y:auto;}
+.t-hdr{display:flex;justify-content:space-between;align-items:center;}
+.t-hdr h2{font-size:17px;font-weight:800;}
+.t-close{background:none;border:none;color:var(--dim);font-size:22px;cursor:pointer;padding:2px 6px;line-height:1;}
+.t-close:hover{color:var(--text);}
+.t-intro{font-size:12px;color:var(--dim);line-height:1.5;background:rgba(99,102,241,.1);
+  border-radius:8px;padding:8px 10px;border-left:3px solid var(--accent);}
+.t-tabs{display:flex;gap:4px;}
+.ttab{flex:1;padding:5px 2px;border:1px solid rgba(255,255,255,.18);border-radius:6px;
+  background:transparent;color:var(--dim);cursor:pointer;font-size:11px;
+  font-weight:700;text-transform:uppercase;letter-spacing:.5px;transition:all .15s;}
+.ttab:hover{color:var(--text);}
+.ttab.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+#tgrid{
+  display:grid;grid-template-columns:repeat(9,1fr);
+  width:min(340px,calc(100vw - 44px));height:min(340px,calc(100vw - 44px));
+  border:3px solid var(--border-blk);border-radius:3px;overflow:hidden;
+  align-self:center;
+}
+.tcell{
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);
+  border-right:1px solid var(--border-in);
+  border-bottom:1px solid var(--border-in);
+  font-size:clamp(12px,3.8vw,18px);font-weight:700;
+  transition:background .22s;
+}
+.tcell:nth-child(3n){border-right:2px solid var(--border-blk);}
+.tcell:nth-child(9n){border-right:none;}
+.tcell.tbr{border-bottom:2px solid var(--border-blk);}
+.tcell.tlr{border-bottom:none;}
+.tcell.t-given{color:var(--given);}
+.tcell.t-filled{color:#93c5fd;}
+.tcell.t-hl{background:rgba(99,102,241,.22);}
+.tcell.t-target{background:#fbbf24!important;color:#111;font-weight:900;animation:tpop .3s ease;}
+@keyframes tpop{0%{transform:scale(1.25);}100%{transform:scale(1);}}
+#tstep{text-align:center;font-size:12px;color:var(--dim);font-family:monospace;letter-spacing:.5px;}
+#texpl{background:var(--surface2);border-radius:10px;padding:12px 14px;min-height:68px;font-size:13px;line-height:1.55;}
+.t-tech{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:5px;}
+.t-reason{color:var(--text);}
+.t-ctrls{display:flex;gap:8px;justify-content:center;}
+.t-ctrls button{
+  flex:1;max-width:110px;padding:9px 10px;
+  border:1px solid rgba(255,255,255,.16);border-radius:var(--r);
+  background:var(--surface2);color:var(--text);cursor:pointer;
+  font-size:12px;font-weight:700;transition:all .12s;}
+.t-ctrls button:hover{background:var(--surface);}
+.t-ctrls button:disabled{opacity:.35;cursor:not-allowed;}
+#tplayBtn{background:var(--accent);border-color:var(--accent);}
+.t-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.t-legend span{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px;}
+.t-legend i{display:inline-block;width:14px;height:14px;border-radius:3px;}
+.leg-target{background:#fbbf24;}
+.leg-hl{background:rgba(99,102,241,.35);}
 </style>
 </head>
 <body>
@@ -159,6 +218,7 @@ h1 em{font-style:normal;color:var(--accent);}
     <button class="ab" id="nBtn" onclick="toggleNotes()" title="Poznámky (P)"><span class="ai">✏️</span>Tužka</button>
     <button class="ab" onclick="erase()" title="Guma (Del)"><span class="ai">⌫</span>Guma</button>
     <button class="ab" id="hBtn" onclick="hint()" title="Nápověda (H)"><span class="ai">💡</span><span id="hc">3</span></button>
+    <button class="ab" onclick="openTutorial()" title="Jak hrají mistři (T)"><span class="ai">🎓</span>Mistři</button>
   </div>
   <div class="numpad" id="numpad"></div>
 </div>
@@ -189,6 +249,35 @@ h1 em{font-style:normal;color:var(--accent);}
     <div class="ovbtns">
       <button class="bp" onclick="newGame()">Nová hra</button>
       <button class="bp bs" onclick="cont()">Pokračovat</button>
+    </div>
+  </div>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tov" class="ov">
+  <div id="tbox">
+    <div class="t-hdr">
+      <h2>🎓 Jak hrají mistři</h2>
+      <button class="t-close" onclick="closeTutorial()">✕</button>
+    </div>
+    <p class="t-intro">Ukázka, jak profesionálové přistupují k Sudoku — krok po kroku s vysvětlením logiky. Žádné hádání!</p>
+    <div class="t-tabs">
+      <button class="ttab on" data-d="easy"   onclick="setTDiff('easy')">Lehká</button>
+      <button class="ttab"    data-d="medium" onclick="setTDiff('medium')">Střední</button>
+      <button class="ttab"    data-d="hard"   onclick="setTDiff('hard')">Těžká</button>
+      <button class="ttab"    data-d="expert" onclick="setTDiff('expert')">Expert</button>
+    </div>
+    <div id="tgrid"></div>
+    <div id="tstep">Zahájení</div>
+    <div id="texpl"><div class="t-reason">Vyber obtížnost a klikni <b>Další →</b> pro první krok.</div></div>
+    <div class="t-legend">
+      <span><i class="leg-target"></i> Řešená buňka</span>
+      <span><i class="leg-hl"></i> Omezující oblast</span>
+    </div>
+    <div class="t-ctrls">
+      <button id="tprevBtn" onclick="tPrev()" disabled>◀ Zpět</button>
+      <button id="tplayBtn" onclick="tPlayPause()">▶ Přehrát</button>
+      <button id="tnextBtn" onclick="tNext()">Další ▶</button>
     </div>
   </div>
 </div>
@@ -508,6 +597,217 @@ function confetti(){
 }
 
 // ═══════════════════════════════════════════
+// TUTORIAL — Jak hrají mistři
+// ═══════════════════════════════════════════
+const TPUZ={
+  easy:[
+    [5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
+    [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
+    [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]
+  ],
+  medium:[
+    [0,0,0,2,6,0,7,0,1],[6,8,0,0,7,0,0,9,0],[1,9,0,0,0,4,5,0,0],
+    [8,2,0,1,0,0,0,4,0],[0,0,4,6,0,2,9,0,0],[0,5,0,0,0,3,0,2,8],
+    [0,0,9,3,0,0,0,7,4],[0,4,0,0,5,0,0,3,6],[7,0,3,0,1,8,0,0,0]
+  ],
+  hard:[
+    [0,2,0,0,0,0,0,0,0],[0,0,0,6,0,0,0,0,3],[0,7,4,0,8,0,0,0,0],
+    [0,0,0,0,0,3,0,0,2],[0,8,0,0,4,0,0,1,0],[6,0,0,5,0,0,0,0,0],
+    [0,0,0,0,1,0,7,8,0],[5,0,0,0,0,9,0,0,0],[0,0,0,0,0,0,0,4,0]
+  ],
+  expert:[
+    [0,0,5,3,0,0,0,0,0],[8,0,0,0,0,0,0,2,0],[0,7,0,0,1,0,5,0,0],
+    [4,0,0,0,0,5,3,0,0],[0,1,0,0,7,0,0,0,6],[0,0,3,2,0,0,0,8,0],
+    [0,6,0,5,0,0,0,0,9],[0,0,4,0,0,0,0,3,0],[0,0,0,0,0,9,7,0,0]
+  ]
+};
+
+const T={diff:'easy',steps:[],idx:0,playing:false,intv:null};
+
+function tCands(b,r,c){
+  if(b[r][c])return new Set();
+  const u=new Set([0]);
+  for(let i=0;i<9;i++){u.add(b[r][i]);u.add(b[i][c]);u.add(b[3*(r/3|0)+(i/3|0)][3*(c/3|0)+i%3]);}
+  const res=new Set();
+  for(let n=1;n<=9;n++)if(!u.has(n))res.add(n);
+  return res;
+}
+
+function buildTSteps(puz){
+  const steps=[];
+  const b=puz.map(r=>[...r]);
+  const cands=Array.from({length:9},(_,r)=>Array.from({length:9},(_,c)=>tCands(b,r,c)));
+
+  function place(r,c,val,type,hlArr,techName,reason){
+    b[r][c]=val;
+    for(let i=0;i<9;i++){cands[r][i].delete(val);cands[i][c].delete(val);}
+    const br=(r/3|0)*3,bc=(c/3|0)*3;
+    for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)cands[br+dr][bc+dc].delete(val);
+    cands[r][c]=new Set();
+    const excl=[1,2,3,4,5,6,7,8,9].filter(n=>n!==val);
+    steps.push({board:b.map(row=>[...row]),r,c,val,hlCells:new Set(hlArr),techName,reason,excl});
+  }
+
+  let maxIter=150;
+  while(maxIter-->0){
+    let found=false;
+
+    // Naked Singles
+    for(let r=0;r<9&&!found;r++)for(let c=0;c<9&&!found;c++){
+      if(b[r][c]||cands[r][c].size!==1)continue;
+      const val=[...cands[r][c]][0];
+      const hl=[];
+      for(let i=0;i<9;i++){hl.push(`${r},${i}`);hl.push(`${i},${c}`);}
+      const br=(r/3|0)*3,bc=(c/3|0)*3;
+      for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)hl.push(`${br+dr},${bc+dc}`);
+      place(r,c,val,'naked',hl.filter(k=>k!==`${r},${c}`),
+        'Jednoduchá eliminace (Naked Single)',
+        `Políčko <b>R${r+1}·S${c+1}</b> může obsahovat jen číslo <b>${val}</b>.<br>`+
+        `Čísla ${[1,2,3,4,5,6,7,8,9].filter(n=>n!==val).join(', ')} jsou již v jeho řádku, sloupci nebo bloku.`);
+      found=true;
+    }
+
+    // Hidden Singles — řádky
+    if(!found)for(let r=0;r<9&&!found;r++)for(let n=1;n<=9&&!found;n++){
+      const cells=[];
+      for(let c=0;c<9;c++)if(!b[r][c]&&cands[r][c].has(n))cells.push(c);
+      if(cells.length!==1)continue;
+      const c=cells[0];
+      const hl=[];for(let i=0;i<9;i++)hl.push(`${r},${i}`);
+      place(r,c,n,'h-row',hl.filter(k=>k!==`${r},${c}`),
+        'Skrytá jednička v řádku (Hidden Single)',
+        `Číslo <b>${n}</b> může v <b>řádku ${r+1}</b> stát jen na pozici sloupce ${c+1}.<br>`+
+        `Ve všech ostatních buňkách řádku ${r+1} je číslo ${n} vyloučeno sloupcovými nebo blokovými omezeními.`);
+      found=true;
+    }
+
+    // Hidden Singles — sloupce
+    if(!found)for(let c=0;c<9&&!found;c++)for(let n=1;n<=9&&!found;n++){
+      const cells=[];
+      for(let r=0;r<9;r++)if(!b[r][c]&&cands[r][c].has(n))cells.push(r);
+      if(cells.length!==1)continue;
+      const r=cells[0];
+      const hl=[];for(let i=0;i<9;i++)hl.push(`${i},${c}`);
+      place(r,c,n,'h-col',hl.filter(k=>k!==`${r},${c}`),
+        'Skrytá jednička ve sloupci (Hidden Single)',
+        `Číslo <b>${n}</b> může v <b>sloupci ${c+1}</b> stát jen na pozici řádku ${r+1}.<br>`+
+        `Ve všech ostatních buňkách sloupce ${c+1} je číslo ${n} vyloučeno řádkovými nebo blokovými omezeními.`);
+      found=true;
+    }
+
+    // Hidden Singles — bloky
+    if(!found)for(let br=0;br<3&&!found;br++)for(let bc=0;bc<3&&!found;bc++)for(let n=1;n<=9&&!found;n++){
+      const cells=[];
+      for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++){
+        const r=br*3+dr,c=bc*3+dc;
+        if(!b[r][c]&&cands[r][c].has(n))cells.push({r,c});
+      }
+      if(cells.length!==1)continue;
+      const{r,c}=cells[0];
+      const hl=[];
+      for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)hl.push(`${br*3+dr},${bc*3+dc}`);
+      place(r,c,n,'h-box',hl.filter(k=>k!==`${r},${c}`),
+        'Skrytá jednička v bloku (Hidden Single)',
+        `Číslo <b>${n}</b> může v tomto <b>3×3 bloku</b> stát jen na pozici <b>R${r+1}·S${c+1}</b>.<br>`+
+        `Ve všech ostatních prázdných buňkách tohoto bloku je číslo ${n} vyloučeno.`);
+      found=true;
+    }
+
+    if(!found)break;
+  }
+  return steps;
+}
+
+function openTutorial(){
+  document.getElementById('tov').classList.add('show');
+  buildTGrid();
+  setTDiff('easy');
+}
+function closeTutorial(){tStop();document.getElementById('tov').classList.remove('show');}
+
+function buildTGrid(){
+  const g=document.getElementById('tgrid');g.innerHTML='';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const el=document.createElement('div');
+    el.className='tcell'+(((r+1)%3===0&&r!==8)?' tbr':'')+(r===8?' tlr':'');
+    el.id=`tc-${r}-${c}`;g.appendChild(el);
+  }
+}
+
+function setTDiff(d){
+  T.diff=d;
+  document.querySelectorAll('.ttab').forEach(b=>b.classList.toggle('on',b.dataset.d===d));
+  tStop();
+  T.steps=buildTSteps(TPUZ[d]);
+  T.idx=0;
+  renderTStep();
+}
+
+function renderTStep(){
+  const steps=T.steps,total=steps.length,puz=TPUZ[T.diff];
+  let board,hlCells=new Set(),highlightRC=null,techName='',reason='';
+
+  if(T.idx===0){
+    board=puz.map(r=>[...r]);
+    reason='Klikni <b>Další →</b> pro první krok.';
+  }else{
+    const step=steps[T.idx-1];
+    board=step.board;hlCells=step.hlCells;
+    highlightRC={r:step.r,c:step.c};
+    techName=step.techName;reason=step.reason;
+  }
+
+  // Render grid
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const el=document.getElementById(`tc-${r}-${c}`);
+    const v=board[r][c],isGiven=puz[r][c]!==0;
+    const isTarget=highlightRC&&r===highlightRC.r&&c===highlightRC.c;
+    const isHL=hlCells.has(`${r},${c}`)&&!isTarget;
+    el.className='tcell'+(((r+1)%3===0&&r!==8)?' tbr':'')+(r===8?' tlr':'');
+    if(isTarget)el.classList.add('t-target');
+    else if(isHL)el.classList.add('t-hl');
+    if(isGiven)el.classList.add('t-given');
+    else if(v&&!isGiven)el.classList.add('t-filled');
+    el.textContent=v||'';
+  }
+
+  // Step counter
+  document.getElementById('tstep').textContent=
+    T.idx===0?`Začátek — ${total} kroků celkem`:
+    T.idx>=total?`✅ Vyřešeno za ${total} logických kroků!`:
+    `Krok ${T.idx} z ${total}`;
+
+  // Explanation
+  document.getElementById('texpl').innerHTML=
+    techName?`<div class="t-tech">${techName}</div><div class="t-reason">${reason}</div>`:
+    T.idx>=total&&total>0?
+      `<div class="t-tech">✅ Hotovo!</div><div class="t-reason">Celá hra vyřešena čistou logikou — bez jediného hádání! To je tajemství mistrů.</div>`:
+      `<div class="t-reason">${reason}</div>`;
+
+  document.getElementById('tprevBtn').disabled=T.idx===0;
+  document.getElementById('tnextBtn').disabled=T.idx>=total;
+  if(T.idx>=total)tStop();
+}
+
+function tNext(){if(T.idx<T.steps.length){T.idx++;renderTStep();}}
+function tPrev(){if(T.idx>0){T.idx--;renderTStep();}}
+
+function tPlayPause(){T.playing?tStop():tPlay();}
+function tPlay(){
+  T.playing=true;
+  document.getElementById('tplayBtn').textContent='⏸ Pauza';
+  T.intv=setInterval(()=>{
+    if(T.idx>=T.steps.length){tStop();return;}
+    T.idx++;renderTStep();
+  },1600);
+}
+function tStop(){
+  T.playing=false;clearInterval(T.intv);
+  const b=document.getElementById('tplayBtn');
+  if(b)b.textContent='▶ Přehrát';
+}
+
+// ═══════════════════════════════════════════
 // KEYBOARD
 // ═══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
@@ -518,6 +818,7 @@ document.addEventListener('keydown',e=>{
   if(k==='p'||k==='P'){toggleNotes();return;}
   if(k==='h'||k==='H'){hint();return;}
   if(k==='n'||k==='N'){newGame();return;}
+  if(k==='t'||k==='T'){openTutorial();return;}
   if(!G.sel)return;
   const{r,c}=G.sel;
   if(k==='ArrowUp'||k==='w'){e.preventDefault();if(r>0)selCell(r-1,c);}
