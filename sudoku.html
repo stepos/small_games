@@ -91,11 +91,17 @@ h1 em{font-style:normal;color:var(--accent);}
 .streak-badge{font-size:11px;font-weight:800;color:#f97316;background:rgba(249,115,22,.15);
   border-radius:20px;padding:2px 9px;display:none;letter-spacing:.3px;}
 .pause-msg{font-size:42px;margin-bottom:6px;}
-#snd-row{text-align:center;padding:6px 0 14px;}
+#snd-row{padding:6px 0 14px;}
 #snd-btn{background:none;border:1px solid rgba(255,255,255,.15);color:var(--dim);
   border-radius:20px;padding:4px 16px;font-size:11px;cursor:pointer;transition:all .15s;font-weight:600;}
 #snd-btn:hover{color:var(--text);border-color:rgba(255,255,255,.3);}
 #snd-btn.on{color:#34d399;border-color:#34d399;}
+#snd-row{display:flex;justify-content:center;gap:8px;}
+#anim-btn{background:none;border:1px solid rgba(255,255,255,.15);color:var(--dim);
+  border-radius:20px;padding:4px 16px;font-size:11px;cursor:pointer;transition:all .15s;font-weight:600;}
+#anim-btn:hover{color:var(--text);border-color:rgba(255,255,255,.3);}
+#anim-btn.on{color:#a78bfa;border-color:#a78bfa;}
+body.anim-off{animation:none!important;background:#0f172a!important;}
 
 /* ── BEST TIMES ── */
 #bt{width:100%;max-width:364px;padding:4px 2px 0;display:flex;gap:5px;}
@@ -318,7 +324,10 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
   <div class="bti"><div class="btl">Těžká</div><div class="btv" id="bt-hard">—</div></div>
   <div class="bti"><div class="btl">Expert</div><div class="btv" id="bt-expert">—</div></div>
 </div>
-<div id="snd-row"><button id="snd-btn" onclick="toggleSnd()">🔇 Zvuk VYP</button></div>
+<div id="snd-row">
+  <button id="snd-btn" onclick="toggleSnd()">🔇 Zvuk VYP</button>
+  <button id="anim-btn" onclick="toggleAnim()">✨ Anim VYP</button>
+</div>
 
 <div id="wov" class="ov">
   <div class="ovbox" id="wbox">
@@ -661,6 +670,21 @@ function updSndBtn(){
   b.classList.toggle('on',SND.on);
 }
 
+// ── ANIMACE toggle ──
+const ANIM={on:localStorage.getItem('anim')!=='0'};
+function toggleAnim(){
+  ANIM.on=!ANIM.on;
+  localStorage.setItem('anim',ANIM.on?'1':'0');
+  updAnimBtn();
+  document.body.classList.toggle('anim-off',!ANIM.on);
+}
+function updAnimBtn(){
+  const b=document.getElementById('anim-btn');
+  if(!b)return;
+  b.textContent=ANIM.on?'✨ Anim ZAP':'✨ Anim VYP';
+  b.classList.toggle('on',ANIM.on);
+}
+
 // ═══════════════════════════════════════════
 // MESSAGES — {n} se nahradí jménem hráče
 // ═══════════════════════════════════════════
@@ -910,8 +934,10 @@ function updNumpad(){
     b.classList.toggle('done',isDone);
     if(isDone&&!wasDone){
       SND.numDone();
-      b.classList.add('anim-num-done');
-      b.addEventListener('animationend',()=>b.classList.remove('anim-num-done'),{once:true});
+      if(ANIM.on){
+        b.classList.add('anim-num-done');
+        b.addEventListener('animationend',()=>b.classList.remove('anim-num-done'),{once:true});
+      }
     }
   });
 }
@@ -967,6 +993,7 @@ function shakeCell(r,c){
 }
 
 function animCellPop(r,c){
+  if(!ANIM.on)return;
   const el=document.querySelectorAll('.cell')[r*9+c];
   el.classList.remove('anim-pop');
   void el.offsetWidth;
@@ -975,6 +1002,7 @@ function animCellPop(r,c){
 }
 
 function animCellErr(r,c){
+  if(!ANIM.on)return;
   const el=document.querySelectorAll('.cell')[r*9+c];
   el.classList.remove('anim-err');
   void el.offsetWidth;
@@ -983,6 +1011,7 @@ function animCellErr(r,c){
 }
 
 function animBoardEntrance(){
+  if(!ANIM.on)return;
   const cells=document.querySelectorAll('.cell');
   cells.forEach((el,idx)=>{
     const r=idx/9|0,c=idx%9;
@@ -999,6 +1028,7 @@ function animBoardEntrance(){
 }
 
 function animGroupWave(idxArr,fromIdx){
+  if(!ANIM.on)return;
   const cells=document.querySelectorAll('.cell');
   const fr=fromIdx/9|0,fc=fromIdx%9;
   const sorted=idxArr.slice().sort((a,b)=>{
@@ -1661,8 +1691,10 @@ document.addEventListener('keydown',e=>{
   initFB();
   // Zobrazit streak badge pokud existuje
   updStreakBadge();
-  // Nastavit stav sound tlačítka
+  // Nastavit stav sound + anim tlačítek
   updSndBtn();
+  updAnimBtn();
+  if(!ANIM.on)document.body.classList.add('anim-off');
 
   // Zkontrolovat jméno hráče — pokud není, zobrazit welcome modal
   // (hra se spustí uvnitř saveName() až po zadání)
