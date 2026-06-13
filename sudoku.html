@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Sudoku — Pišto hraje</title>
+<title>Sudoku</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -339,6 +339,17 @@ table.lbt td{padding:8px 7px;font-size:13px;border-bottom:1px solid rgba(255,255
   </div>
 </div>
 
+<!-- ═══ WELCOME — zadání jména ═══ -->
+<div id="wnov" class="ov">
+  <div class="ovbox" style="max-width:320px;width:90vw">
+    <h2 style="margin-bottom:8px">👋 Ahoj!</h2>
+    <p style="color:var(--dim);font-size:13px;margin-bottom:18px">Jak ti mám říkat?</p>
+    <input class="ni" id="wn-inp" type="text" maxlength="20" placeholder="Tvoje přezdívka…" autocomplete="off">
+    <button class="ch-btn" onclick="saveName()">Začít hrát 🎮</button>
+    <button class="ch-btn s" style="margin-top:7px" onclick="saveName('Anonymní hráč')">Hrát anonymně</button>
+  </div>
+</div>
+
 <!-- ═══ VÝZVA MODAL ═══ -->
 <div id="cov" class="ov">
   <div class="ovbox" id="cbox">
@@ -481,21 +492,26 @@ function genPuzzle(diff){
 }
 
 // ═══════════════════════════════════════════
-// MESSAGES
+// PLAYER NAME
+// ═══════════════════════════════════════════
+let playerName = localStorage.getItem('pName') || '';
+
+// ═══════════════════════════════════════════
+// MESSAGES — {n} se nahradí jménem hráče
 // ═══════════════════════════════════════════
 const M={
-  start:['Vítej, Pišto! Jdeme na to?','Tak pojď hrát, Pišto! 🃏','Připraven, Pišto? Hurá!'],
-  hint: ['Tady máš malou pomoc, Pišto.','Jen tentokrát, Pišto! 😏','Trochu ti pomůžu, Pišto 💡'],
-  err:  ['Pozor, Pišto, tohle tam nesedí!','Hmm, Pišto, to není správně!','Zkus znovu, Pišto!'],
-  win:  ['Skvělá práce, Pišto!','Výborně, Pišto! 🎉','Jsi borec, Pišto! 💪'],
-  rec:  ['Jako dobrý, Pišto, máš rekord! 🏆','Nový rekord, Pišto! Zboř to! 🏆'],
-  go:   ['Třikrát chyba, Pišto! Konec!','Ups, Pišto, třikrát špatně — konec!'],
-  noH:  ['Žádné nápovědy nezbývají, Pišto.'],
-  noteOn:['Režim poznámek zapnut, Pišto! ✏️'],
-  noteOff:['Poznámky vypnuty, Pišto.'],
-  erased:['Smazáno, Pišto!'],
+  start:['Vítej, {n}! Jdeme na to?','Tak pojď hrát, {n}! 🃏','Připraven, {n}? Hurá!'],
+  hint: ['Tady máš malou pomoc, {n}.','Jen tentokrát, {n}! 😏','Trochu ti pomůžu, {n} 💡'],
+  err:  ['Pozor, {n}, tohle tam nesedí!','Hmm, {n}, to není správně!','Zkus znovu, {n}!'],
+  win:  ['Skvělá práce, {n}!','Výborně, {n}! 🎉','Jsi borec, {n}! 💪'],
+  rec:  ['Máš rekord, {n}! 🏆','Nový rekord, {n}! Zboř to! 🏆'],
+  go:   ['Třikrát chyba, {n}! Konec!','Ups, {n}, třikrát špatně — konec!'],
+  noH:  ['Žádné nápovědy, {n}.'],
+  noteOn:['Poznámky zapnuty, {n}! ✏️'],
+  noteOff:['Poznámky vypnuty, {n}.'],
+  erased:['Smazáno, {n}!'],
 };
-const pick=k=>{const a=M[k];return a[Math.random()*a.length|0];};
+const pick=k=>{const a=M[k];const msg=a[Math.random()*a.length|0];return msg.replace(/{n}/g,playerName||'hráči');};
 
 let tT;
 function toast(msg,dur=3200){
@@ -728,6 +744,33 @@ function confetti(){
       setTimeout(()=>el.remove(),4500);
     },i*12);
   }
+}
+
+// ═══════════════════════════════════════════
+// WELCOME — jméno hráče
+// ═══════════════════════════════════════════
+function checkName(){
+  if(!playerName){
+    document.getElementById('wnov').classList.add('show');
+    setTimeout(()=>document.getElementById('wn-inp').focus(),200);
+    return false; // hra se spustí až po zadání jména
+  }
+  return true;
+}
+
+function saveName(override){
+  const raw=override||document.getElementById('wn-inp').value.trim();
+  if(!raw&&!override){document.getElementById('wn-inp').focus();return;}
+  playerName=(raw||'Hráč').slice(0,20);
+  localStorage.setItem('pName',playerName);
+  document.getElementById('wnov').classList.remove('show');
+  // předvyplnit pole pro skóre
+  const si=document.getElementById('score-name');
+  if(si&&!si.value)si.value=playerName;
+  // spustit hru
+  const urlCid=getUrlCid();
+  if(urlCid)launchChallenge(urlCid);
+  else setDiff('medium');
 }
 
 // ═══════════════════════════════════════════
@@ -1267,13 +1310,21 @@ document.addEventListener('keydown',e=>{
     b.className='nb';b.textContent=n;b.onclick=()=>enterNum(n);
     pad.appendChild(b);
   }
+  // Enter pro odeslání jména
+  document.getElementById('wn-inp').addEventListener('keydown',e=>{if(e.key==='Enter')saveName();});
+
   // Načtout Firebase (pokud je nakonfigurovaná)
   initFB();
 
-  // Zkontrolovat URL hash pro challenge
-  const urlCid=getUrlCid();
-  if(urlCid){launchChallenge(urlCid);}
-  else{setDiff('medium');}
+  // Zkontrolovat jméno hráče — pokud není, zobrazit welcome modal
+  // (hra se spustí uvnitř saveName() až po zadání)
+  if(!checkName()){
+    // čeká na zadání jména
+  } else {
+    const urlCid=getUrlCid();
+    if(urlCid)launchChallenge(urlCid);
+    else setDiff('medium');
+  }
 })();
 </script>
 </body>
